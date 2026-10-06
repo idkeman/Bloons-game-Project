@@ -314,6 +314,8 @@ export class Tower {
     this.angle=0;
     this.lastTarget=null;
     this.activeBuff={damage:0,pierce:0,speed:0,range:0};
+    this.isSupport=!!def.isSupport;
+    this.isSpike=!!def.isSpike;
   }
   pathTier(path){return this.levels[path]||0;}
   primaryPath(){return this.levels.indexOf(Math.max(...this.levels));}
