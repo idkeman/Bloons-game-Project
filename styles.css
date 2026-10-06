@@ -68,7 +68,7 @@ h2 { margin: 6px 0 0; font-size: 28px; }
 #profile-strip { margin-top: 18px; color: var(--muted); font-size: 13px; }
 
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
-.map-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 14px; }
+.map-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 14px; }
 .map-card {
   text-align: left;
   padding: 18px;
@@ -247,4 +247,15 @@ h2 { margin: 6px 0 0; font-size: 28px; }
 .paragon-card small {
   color: rgba(232, 237, 243, 0.72);
   line-height: 1.35;
+}
+
+
+.map-card select {
+  min-width: 0;
+  width: 100%;
+}
+
+.map-card .primary {
+  white-space: nowrap;
+  min-width: 86px;
 }
