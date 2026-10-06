@@ -65,6 +65,23 @@ ui.bind({
     ui.showGameEnd(false);
     ui.showMenu();
   },
+  restart: () => {
+    const mapId = game.map?.id;
+    if (!mapId) {
+      ui.showMapScreen();
+      return;
+    }
+
+    game.start(mapId, {
+      sandbox: Boolean(game.sandbox),
+      freeplay: Boolean(game.freeplay),
+      mode: game.gameModeId || "standard",
+      difficulty: game.difficultyId || "normal"
+    });
+
+    ui.showGame();
+    ui.showGameEnd(false);
+  },
   selectTower: id => game.selectBuildTower(id),
   selectEntity: id => game.selectEntity(id),
   cycleTarget: () => game.cycleSelectedTarget(),
