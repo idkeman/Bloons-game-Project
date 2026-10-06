@@ -488,6 +488,8 @@ export class Game {
     this.freeplay = Boolean(options.freeplay);
     this.gameModeId = options.mode || "standard";
     this.gameMode = getGameMode(this.gameModeId);
+    this.autoRounds =
+      Boolean(this.gameMode.autoRounds);
 
     this.difficultyId = options.difficulty || "normal";
     this.difficulty =
@@ -1828,7 +1830,10 @@ export class Game {
 
     if (this.map) {
       this.path = new RoutePath(
-        this.map.path.map(([x, y]) => [
+        (this.gameModeId === "reverse"
+          ? [...this.map.path].reverse()
+          : this.map.path
+        ).map(([x, y]) => [
           x * this.width,
           y * this.height
         ]),
