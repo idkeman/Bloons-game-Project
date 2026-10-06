@@ -93,7 +93,8 @@ assert.equal(
 );
 
 const firstMap = page.locator(".map-card").first();
-await firstMap.locator("select").selectOption("hard");
+await firstMap.locator("select").nth(0).selectOption("hard");
+await firstMap.locator("select").nth(1).selectOption("standard");
 await firstMap.locator("button").click();
 
 await page.locator("#game-canvas").waitFor();
