@@ -95,7 +95,7 @@ const towerSeed = [
    {range:9999,attackSpeed:2.1,damage:4,pierce:30,projectiles:1,speed:290,splash:48,artillery:true},
    ["Bigger Shell","Heavy Shell","Burning Ground","Shockwave Shell","Cataclysm"],
    ["Fast Loader","Rapid Loader","Precision Crew","Elite Crew","Perfect Barrage"],
-   ["Signal Flare","Target Painter","Mapwide Marker","Command Fire","Orbital Marker"]]
+   ["Signal Flare","Target Painter","Mapwide Marker","Command Fire","Orbital Marker"]],
   ["laser","Prism Blaster","magic",1200,"L","Energy-beam tower with refraction upgrades.",
    {range:205,attackSpeed:.28,damage:4,pierce:8,projectiles:1,speed:0,damageType:"energy"},
    ["Focused Lens","Twin Beam","Radiant Beam","Spectrum Beam","Prismatic Crown"],
