@@ -116,8 +116,8 @@ await page.evaluate(() => {
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
       bubbles: true,
-      clientX: x,
-      clientY: y,
+      clientX: rect.left + x,
+      clientY: rect.top + y,
       button: 0,
       pointerType: "mouse"
     })
@@ -204,8 +204,8 @@ await page.evaluate(() => {
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
       bubbles: true,
-      clientX: x,
-      clientY: y,
+      clientX: rect.left + x,
+      clientY: rect.top + y,
       button: 0,
       pointerType: "mouse"
     })
@@ -240,6 +240,119 @@ assert.ok(
     () => window.monkeyFrontier.game.bloons.length > 0
   ),
   "round should spawn enemies"
+);
+
+await page.locator("#tower-buttons .tower-button").last().click();
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  const zone = game.map.buildZones[0];
+  const x = (zone.x + zone.w / 2) * game.width;
+  const y = (zone.y + zone.h / 2) * game.height;
+
+  game.canvas.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX: rect.left + x,
+      clientY: rect.top + y,
+      button: 0,
+      pointerType: "mouse"
+    })
+  );
+});
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.heroes.length
+  ),
+  1,
+  "hero placement should create a hero"
+);
+
+await page.locator("#ability-btn").click();
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  game.start("rivergate", { sandbox: true });
+});
+
+await page.locator("#tower-buttons .tower-button").filter({
+  hasText: "Tide Submersible"
+}).click();
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  const zone = game.map.waterZones[0];
+  const x = (zone.x + zone.w / 2) * game.width;
+  const y = 0.08 * game.height;
+
+  game.canvas.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX: rect.left + x,
+      clientY: rect.top + y,
+      button: 0,
+      pointerType: "mouse"
+    })
+  );
+});
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.towers.some(
+      (tower) => tower.type === "sub"
+    )
+  ),
+  true,
+  "water tower should deploy in a water zone"
+);
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  game.start("meadow", { sandbox: true });
+  const boss = game.spawnBloon("bossTitan");
+  boss.health = boss.maxHealth * 0.74;
+  game.bosses.update();
+});
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.bloons.some(
+      (bloon) => bloon.type === "fortBlimp"
+    )
+  ),
+  true,
+  "boss phase should spawn reinforcement units"
+);
+
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  game.lose();
+});
+
+await page.locator("#end-overlay").waitFor({
+  state: "visible"
+});
+
+assert.equal(
+  await page.locator("#end-title").textContent(),
+  "Defense collapsed"
+);
+
+await page.locator("#restart-btn").click();
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.state
+  ),
+  "running"
+);
+
+assert.equal(
+  await page.locator("#end-overlay").evaluate(
+    (node) => node.classList.contains("hidden")
+  ),
+  true
 );
 
 await page.locator("#save-btn").click();
@@ -315,119 +428,6 @@ assert.ok(
 );
 
 
-
-await page.locator("#tower-buttons .tower-button").last().click();
-await page.evaluate(() => {
-  const game = window.monkeyFrontier.game;
-  const zone = game.map.buildZones[0];
-  const x = (zone.x + zone.w / 2) * game.width;
-  const y = (zone.y + zone.h / 2) * game.height;
-
-  game.canvas.dispatchEvent(
-    new PointerEvent("pointerdown", {
-      bubbles: true,
-      clientX: x,
-      clientY: y,
-      button: 0,
-      pointerType: "mouse"
-    })
-  );
-});
-
-assert.equal(
-  await page.evaluate(
-    () => window.monkeyFrontier.game.heroes.length
-  ),
-  1,
-  "hero placement should create a hero"
-);
-
-await page.locator("#ability-btn").click();
-
-await page.evaluate(() => {
-  const game = window.monkeyFrontier.game;
-  game.start("rivergate", { sandbox: true });
-});
-
-await page.locator("#tower-buttons .tower-button").filter({
-  hasText: "Tide Submersible"
-}).click();
-
-await page.evaluate(() => {
-  const game = window.monkeyFrontier.game;
-  const zone = game.map.waterZones[0];
-  const x = (zone.x + zone.w / 2) * game.width;
-  const y = 0.08 * game.height;
-
-  game.canvas.dispatchEvent(
-    new PointerEvent("pointerdown", {
-      bubbles: true,
-      clientX: x,
-      clientY: y,
-      button: 0,
-      pointerType: "mouse"
-    })
-  );
-});
-
-assert.equal(
-  await page.evaluate(
-    () => window.monkeyFrontier.game.towers.some(
-      (tower) => tower.type === "sub"
-    )
-  ),
-  true,
-  "water tower should deploy in a water zone"
-);
-
-await page.evaluate(() => {
-  const game = window.monkeyFrontier.game;
-  game.start("meadow", { sandbox: true });
-  const boss = game.spawnBloon("bossTitan");
-  boss.health = boss.maxHealth * 0.74;
-  game.bosses.update();
-});
-
-assert.equal(
-  await page.evaluate(
-    () => window.monkeyFrontier.game.bloons.some(
-      (bloon) => bloon.type === "fortBlimp"
-    )
-  ),
-  true,
-  "boss phase should spawn reinforcement units"
-);
-
-
-await page.evaluate(() => {
-  const game = window.monkeyFrontier.game;
-  game.lose();
-});
-
-await page.locator("#end-overlay").waitFor({
-  state: "visible"
-});
-
-assert.equal(
-  await page.locator("#end-title").textContent(),
-  "Defense collapsed"
-);
-
-await page.locator("#restart-btn").click();
-
-assert.equal(
-  await page.evaluate(
-    () => window.monkeyFrontier.game.state
-  ),
-  "running"
-);
-
-assert.equal(
-  await page.locator("#end-overlay").evaluate(
-    (node) => node.classList.contains("hidden")
-  ),
-  true
-);
 
 assert.equal(
   errors.length,
