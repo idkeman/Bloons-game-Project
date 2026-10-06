@@ -19,6 +19,8 @@
           <button id="playButton" class="primary-button">Play</button>
           <button id="resumeButton" class="secondary-button">Resume Saved Game</button>
           <button id="howToPlayButton" class="secondary-button">How to Play</button>
+          <button id="fieldManualButton" class="secondary-button">Field Manual</button>
+          <button id="masteryButton" class="secondary-button">Mastery</button>
           <button id="resetSaveButton" class="danger-button">Reset Save</button>
         </div>
         <div id="menuVersion" class="menu-footer">Build 1.0 • Canvas Edition</div>
@@ -72,6 +74,32 @@
           <p>Abilities are shown in the tower panel when available. Hero XP, tower XP, cash, lives, and round progress save locally.</p>
           <p>After round 100 the game enters an uncapped freeplay simulation with accelerated scaling.</p>
         </div>
+      </div>
+    </div>
+
+    <div id="fieldManualScreen" class="screen hidden">
+      <div class="how-card">
+        <div class="top-row">
+          <button id="manualBackButton" class="icon-button">←</button>
+          <h2>Field Manual</h2>
+        </div>
+        <div class="manual-toolbar">
+          <select id="manualCategorySelect"></select>
+        </div>
+        <div id="manualEntries" class="help-content"></div>
+      </div>
+    </div>
+
+    <div id="masteryScreen" class="screen hidden">
+      <div class="setup-card">
+        <div class="top-row">
+          <button id="masteryBackButton" class="icon-button">←</button>
+          <div>
+            <h2>Mastery</h2>
+            <small id="masteryPointsLabel">0 points available</small>
+          </div>
+        </div>
+        <div id="masteryTree" class="mastery-grid"></div>
       </div>
     </div>
 
