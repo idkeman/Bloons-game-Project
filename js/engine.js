@@ -719,8 +719,7 @@ class Game {
         totalSpent: tower.totalSpent,
         targetMode: tower.targetMode,
         apex: tower.apex
-      })),
-      save: this.save
+      }))
     };
   }
 
