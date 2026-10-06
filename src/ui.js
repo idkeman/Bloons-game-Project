@@ -169,7 +169,16 @@ export class UIController {
     e.heroIcon.textContent=h.def.icon;e.heroName.textContent=h.def.name;e.heroLevel.textContent=`Level ${h.level}`;const l=h.def.base;
     e.heroStats.innerHTML=[['Damage',h.effectiveDamage],['Pierce',h.effectivePierce],['Attack',`${h.effectiveRate.toFixed(2)}s`],['Range',Math.round(h.effectiveRange)]].map(([a,b])=>`<div class="stat"><span>${a}</span><strong>${b}</strong></div>`).join('');
     const levels=HEROES[h.id].levels,cur=levels[Math.max(0,h.level-1)],next=levels[h.level]||null;const baseXp=cur?.xp||0,nextXp=next?.xp||cur?.xp+100;const progress=(h.xp-baseXp)/Math.max(1,nextXp-baseXp);e.heroXpBar.style.width=`${Math.max(0,Math.min(1,progress))*100}%`;e.heroXpText.textContent=next?`${Math.floor(h.xp)} / ${nextXp} XP`:`MAX LEVEL • ${Math.floor(h.xp)} XP`;
-    e.heroAbilities.innerHTML=(HEROES[h.id].abilities||[]).map((a,i)=>`<div class="hero-ability"><strong>${a.name} <span>${i===0?'[E]':''}</span></strong><small>${a.description} • ${a.cooldown}s</small></div>`).join('');
+    const heroAbilities=HEROES[h.id].abilities||[];
+    e.heroAbilities.innerHTML=heroAbilities.map((a,i)=>{
+      const key=h.id+'-'+i;
+      const cooldown=Math.ceil(h.abilityCooldowns[key]||0);
+      const unlocked=h.level>=a.unlock;
+      return '<button class="hero-ability" data-hero-ability="'+i+'" '+(!unlocked||cooldown>0?'disabled':'')+'><strong>'+a.name+' <span>'+(i===0?'[E]':'')+'</span></strong><small>'+a.description+' • '+(cooldown>0?cooldown+'s':'READY')+'</small></button>';
+    }).join('');
+    e.heroAbilities.querySelectorAll('[data-hero-ability]').forEach(button=>{
+      button.onclick=()=>this.game.activateSelectedAbility(Number(button.dataset.heroAbility));
+    });
   }
   renderGameOver(){
     const g=this.game,e=this.els;e.gameOverOverlay.classList.remove('hidden');e.gameOverTitle.textContent=g.won?'Round Cleared!':'Defeat';e.gameOverSummary.textContent=g.won?`You survived through round ${g.round.toLocaleString()} with ${Math.floor(g.cash).toLocaleString()} cash.`:`The defense fell on round ${g.round.toLocaleString()}. You popped ${g.totalPops.toLocaleString()} bloons.`;e.restartButton.textContent=g.won?'Play Again':'Retry';
