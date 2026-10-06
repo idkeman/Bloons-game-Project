@@ -326,6 +326,7 @@ const makeExtraTower = (spec, i) => {
     targetMode: ["first", "strongest", "close", "far"][i % 4],
     color,
     support: category === "support" || category === "economy",
+    incomeRate: archetype === "income" ? 0.0007 : 0,
     description,
     paths: paths(
       [1,2,3,4,5].map((tier) => makeUpgrade(tier,
@@ -362,7 +363,8 @@ const makeExtraTower = (spec, i) => {
           damage: tier + i % 6,
           armorBypass: tier >= 3 ? tier : 0,
           stealthBypass: tier >= 3 && (i % 2 === 0),
-          resistancePierce: tier >= 4 ? Math.min(0.8, tier * 0.14) : 0
+          resistancePierce: tier >= 4 ? Math.min(0.8, tier * 0.14) : 0,
+          incomeRate: archetype === "income" ? tier * 0.00045 : 0
         },
         tier >= 4 ? [effect("field", { radius: 28 + tier * 13, damagePerSecond: tier * 2, slow: 0.9 - tier * 0.08 })] : []
       ))
