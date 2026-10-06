@@ -113,6 +113,7 @@ await page.evaluate(() => {
   const zone = game.map.buildZones[1];
   const x = (zone.x + zone.w / 2) * game.width;
   const y = (zone.y + zone.h / 2) * game.height;
+  const rect = game.canvas.getBoundingClientRect();
 
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
@@ -201,6 +202,7 @@ await page.evaluate(() => {
   const zone = game.map.buildZones[2];
   const x = (zone.x + zone.w / 2) * game.width;
   const y = (zone.y + zone.h / 2) * game.height;
+  const rect = game.canvas.getBoundingClientRect();
 
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
@@ -249,6 +251,7 @@ await page.evaluate(() => {
   const zone = game.map.buildZones[0];
   const x = (zone.x + zone.w / 2) * game.width;
   const y = (zone.y + zone.h / 2) * game.height;
+  const rect = game.canvas.getBoundingClientRect();
 
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
