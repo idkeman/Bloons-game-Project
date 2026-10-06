@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { GameEngine } from '../src/engine.js';
 
-let saved='';
-globalThis.localStorage={setItem:(k,v)=>{saved=v;},getItem:()=>saved,removeItem:()=>{saved='';}};
+const storage=new Map();
+globalThis.localStorage={setItem:(k,v)=>storage.set(k,v),getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)};
 globalThis.performance={now:()=>0};
 globalThis.window={devicePixelRatio:1};
 globalThis.ResizeObserver=class{observe(){}};
