@@ -1,4 +1,5 @@
 import { deepClone } from "./math.js";
+import { KNOWLEDGE_NODES, buyKnowledge, aggregateKnowledge } from "./knowledge.js";
 
 const DEFAULT_PROGRESS = {
   version: 2,
@@ -46,8 +47,19 @@ export class ProgressionSystem {
       settings: {
         ...DEFAULT_PROGRESS.settings,
         ...(profile.progression?.settings || {})
+      },
+      knowledge: {
+        ...DEFAULT_PROGRESS.knowledge,
+        ...(profile.progression?.knowledge || {}),
+        purchased: [
+          ...(profile.progression?.knowledge?.purchased || [])
+        ]
       }
     };
+
+    this.state.knowledge.credits =
+      this.state.knowledge.credits ||
+      0;
   }
 
   awardXp(amount, reason = "unknown") {
@@ -158,6 +170,86 @@ export class ProgressionSystem {
     this.state.unlockedTowers.push(towerId);
     this.persist();
     return true;
+  }
+
+  knowledgeSnapshot() {
+    return {
+      credits: this.state.knowledge.credits,
+      purchased: [
+        ...this.state.knowledge.purchased
+      ],
+      effects: aggregateKnowledge({
+        credits:
+          this.state.knowledge.credits,
+        purchased:
+          this.state.knowledge.purchased
+      })
+    };
+  }
+
+  awardKnowledgeCredits(amount) {
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+      return false;
+    }
+
+    this.state.knowledge.credits +=
+      amount;
+
+    this.persist();
+    return true;
+  }
+
+  buyKnowledge(nodeId) {
+    const knowledgeState = {
+      credits:
+        this.state.knowledge.credits,
+      purchased:
+        this.state.knowledge.purchased
+    };
+
+    if (!buyKnowledge(knowledgeState,nodeId)) {
+      return false;
+    }
+
+    this.state.knowledge =
+      knowledgeState;
+
+    this.persist();
+    return true;
+  }
+
+  knowledgeEffects() {
+    return aggregateKnowledge(
+      this.state.knowledge
+    );
+  }
+
+  listKnowledgeNodes() {
+    return KNOWLEDGE_NODES.map(
+      (node) => ({
+        ...deepClone(node),
+        purchased:
+          this.state.knowledge.purchased.includes(
+            node.id
+          ),
+        available:
+          !this.state.knowledge.purchased.includes(
+            node.id
+          ) &&
+          node.requires.every(
+            (requirement) =>
+              this.state.knowledge.purchased.includes(
+                requirement
+              )
+          ),
+        affordable:
+          this.state.knowledge.credits >=
+          node.cost
+      })
+    );
   }
 
   persist() {
