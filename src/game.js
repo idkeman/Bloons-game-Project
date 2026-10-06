@@ -12,6 +12,7 @@ import { TrapField, TrapSystem } from "./traps.js";
 import { validateGameState } from "./diagnostics.js";
 import { canCreateParagon, calculateDegree, getParagonData } from "./paragons.js";
 import { getGameMode } from "./game_modes.js";
+import { aggregateKnowledge } from "./knowledge.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -364,7 +365,8 @@ export class Game {
       this.addCash(
         baseIncome *
           cycles *
-          this.gameMode.incomeMultiplier,
+          this.gameMode.incomeMultiplier +
+      (this.knowledge.incomeMultiplier || 0),
         "tower-income",
         tower
       );
@@ -514,9 +516,12 @@ export class Game {
     this.cash = this.sandbox
       ? 999999
       : Math.round(
-          this.map.startCash *
-          this.difficulty.cash *
-          this.gameMode.cashMultiplier
+          (
+            this.map.startCash *
+            this.difficulty.cash *
+            this.gameMode.cashMultiplier
+          ) +
+          (this.knowledge.startCash || 0)
         );
 
     this.lives = this.sandbox
@@ -524,7 +529,8 @@ export class Game {
       : Math.round(
           this.map.lives *
           this.difficulty.lives *
-          this.gameMode.startingLives
+          this.gameMode.startingLives *
+          (1 + (this.knowledge.lives || 0))
         );
 
     this.round = 0;
@@ -547,6 +553,7 @@ export class Game {
     this.bosses.reset();
 
     this.progression = new ProgressionSystem(this.save);
+    this.knowledge = this.progression.knowledgeEffects();
 
     this.stats = {
       games: (this.save.profile().games || 0) + 1,
@@ -564,6 +571,7 @@ export class Game {
     this.emit("mapList", MAPS);
     this.emit("towerMenu", Object.values(TOWERS));
     this.emit("progress", this.progression.snapshot());
+    this.emit("knowledge", this.progression.listKnowledgeNodes());
     this.emit("selection", null);
     this.emit("hud", this.hud());
     this.emit("toast", {
@@ -1221,7 +1229,8 @@ export class Game {
 
     const tower = this.towers[index];
     const value = Math.round(
-      tower.totalSpent * 0.70
+      tower.totalSpent *
+      (0.70 + (this.knowledge.sellMultiplier || 0))
     );
 
     this.addCash(
