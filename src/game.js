@@ -10,7 +10,7 @@ import { canPlaceAt } from "./placement.js";
 import { BossController } from "./bosses.js";
 import { TrapField, TrapSystem } from "./traps.js";
 import { validateGameState } from "./diagnostics.js";
-import { canCreateParagon, calculateDegree, getParagonData } from "./paragons.js";
+import { canCreateParagon, calculateDegree, getParagonData, getParagonSacrifices } from "./paragons.js";
 import { activateTowerAbility } from "./tower_abilities.js";
 import { getGameMode } from "./game_modes.js";
 import { aggregateKnowledge } from "./knowledge.js";
@@ -1204,6 +1204,123 @@ export class Game {
     );
   }
 
+  ascendTower(entityId) {
+    const center = this.towers.find(
+      (tower) => tower.id === entityId
+    );
+
+    if (!center || center.ascended) {
+      return false;
+    }
+
+    const paragonData =
+      getParagonData(center.type);
+
+    if (!paragonData) {
+      return false;
+    }
+
+    const sacrifices =
+      getParagonSacrifices(
+        this.towers,
+        center.type
+      );
+
+    if (sacrifices.length !== 3) {
+      this.emit("toast", {
+        text:
+          "Requires one Tier 5 sacrifice from each branch.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    const sacrificeValue =
+      sacrifices.reduce(
+        (sum, tower) =>
+          sum + tower.totalSpent,
+        0
+      );
+
+    const cost =
+      paragonData.minimumCash;
+
+    if (
+      !this.sandbox &&
+      this.cash < cost
+    ) {
+      this.emit("toast", {
+        text:
+          "Not enough cash to ascend.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.sandbox) {
+      this.cash -= cost;
+    }
+
+    const degree =
+      calculateDegree({
+        cashSpent: cost,
+        sacrificeValue,
+        extraCash:
+          Math.max(
+            0,
+            this.cash - 10000
+          ),
+        paragonData
+      });
+
+    const host =
+      sacrifices.includes(center)
+        ? center
+        : sacrifices[0];
+
+    host.ascended = true;
+    host.ascensionDegree = degree;
+    host.paragonData =
+      paragonData;
+    host.pathLevels = [5, 5, 5];
+
+    for (const sacrificed of sacrifices) {
+      if (sacrificed.id === host.id) {
+        continue;
+      }
+
+      const index =
+        this.towers.findIndex(
+          (tower) =>
+            tower.id === sacrificed.id
+        );
+
+      if (index >= 0) {
+        this.towers.splice(
+          index,
+          1
+        );
+      }
+    }
+
+    this.selectedId = host.id;
+
+    this.emit("toast", {
+      text:
+        paragonData.name +
+        " created at degree " +
+        degree +
+        ".",
+      kind: "ability"
+    });
+
+    this.recalculateBuffs();
+    this.emitSelectionIfNeeded(
+      host.id
+    );
+    return true;
+  }
+
   recalculateBuffs() {
     for (const tower of this.towers) {
       tower.buff = {
@@ -1438,16 +1555,11 @@ export class Game {
         paragon: tower.paragonData
           ? deepClone(tower.paragonData)
           : null,
-        canAscend: (
-          tower.pathLevels.includes(5) &&
-          this.towers.filter(
-            (candidate) =>
-              candidate.type === tower.type &&
-              candidate.id !== tower.id &&
-              candidate.pathLevels.includes(5) &&
-              !candidate.ascended
-          ).length >= 2
-        )
+        canAscend:
+          canCreateParagon(
+            this.towers,
+            tower.type
+          )
       };
     }
 
