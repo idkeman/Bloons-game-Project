@@ -194,6 +194,22 @@ export class Bloon {
     this.status.mark = Math.max(this.status.mark, duration);
   }
 
+  serialize() {
+    return {
+      id: this.id,
+      type: this.type,
+      progress: this.progress,
+      health: this.health,
+      maxHealth: this.maxHealth,
+      healthMultiplier: this.healthMultiplier,
+      fortified: this.fortified,
+      camo: this.camo,
+      regrow: this.regrow,
+      status: { ...this.status },
+      statusPower: { ...this.statusPower }
+    };
+  }
+
   splitChildren() {
     if (this.spawnedChildren || !this.data.children?.length) {
       return [];
@@ -215,6 +231,13 @@ export class Bloon {
 }
 
 export class Projectile {
+  static fromSnapshot(snapshot) {
+    const projectile = new Projectile(snapshot);
+    projectile.hitIds = new Set(snapshot.hitIds || []);
+    projectile.alive = snapshot.alive !== false;
+    return projectile;
+  }
+
   constructor(options) {
     Object.assign(this, options);
 
@@ -224,6 +247,13 @@ export class Projectile {
     this.pierce = Math.max(1, Math.floor(options.pierce ?? 1));
     this.radius = options.radius ?? 4;
     this.homing = options.homing ?? 0;
+  }
+
+  serialize() {
+    return {
+      ...this,
+      hitIds: [...this.hitIds]
+    };
   }
 
   update(delta, targets) {
@@ -288,6 +318,7 @@ export class Tower {
 
     this.abilityActive = 0;
     this.abilityMultiplier = 1;
+    this._incomeTimer = 0;
 
     this.buff = {
       range: 0,
