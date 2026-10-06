@@ -219,3 +219,32 @@ h2 { margin: 6px 0 0; font-size: 28px; }
   gap: 9px;
   margin-top: 18px;
 }
+
+
+.paragon-card {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 209, 102, 0.30);
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 209, 102, 0.08),
+    rgba(118, 232, 193, 0.05)
+  );
+}
+
+.paragon-card strong {
+  font-size: 1rem;
+}
+
+.paragon-card span {
+  font-size: 0.82rem;
+  color: #ffd166;
+}
+
+.paragon-card small {
+  color: rgba(232, 237, 243, 0.72);
+  line-height: 1.35;
+}
