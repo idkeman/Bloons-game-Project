@@ -33,7 +33,7 @@ The simulation is split into focused systems:
 
 The current implementation includes:
 
-- 26 original tower archetypes.
+- 27 original tower archetypes.
 - Three five-tier upgrade branches per tower.
 - Crosspath restrictions with one Tier-5 branch.
 - First, Last, Close, Strong, and Weak targeting.
