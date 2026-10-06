@@ -999,6 +999,7 @@ class Game {
     this.totalTime += dt;
     this.waveTimer += dt;
     this.globalRevealTimer = Math.max(0, this.globalRevealTimer - dt);
+    this.globalRevealTimer = Math.max(0, this.globalRevealTimer - dt);
     this.incomeTimer += dt;
 
     if (this.incomeTimer >= 1) {
@@ -1061,11 +1062,8 @@ class Game {
         enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.regen * dt);
       }
 
-      if (enemy.phase > 0 && Math.sin(this.totalTime * 4 + enemy.id) > 0.87) {
-        enemy.visible = false;
-      } else {
-        enemy.visible = true;
-      }
+      const phaseHidden = enemy.phase > 0 && Math.sin(this.totalTime * 4 + enemy.id) > 0.87;
+      enemy.visible = !phaseHidden && (!enemy.stealth || this.globalRevealTimer > 0);
       if (enemy.hitFlash > 0) enemy.hitFlash -= dt;
     }
 
