@@ -41,6 +41,7 @@ export class UIController {
     this.buyUpgradeCallback = actions.buyUpgrade;
 
     document.querySelector("#play-btn").onclick = actions.play;
+    document.querySelector("#continue-btn").onclick = actions.continue;
     document.querySelector("#sandbox-btn").onclick = actions.sandbox;
     document.querySelector("#progress-btn").onclick = actions.progress;
     document.querySelector("#glossary-btn").onclick = actions.glossary;
@@ -87,6 +88,16 @@ export class UIController {
 
   showMenu() {
     this.showScreen("menu");
+  }
+
+  setContinueAvailable(available) {
+    const button = document.querySelector("#continue-btn");
+
+    if (!button) {
+      return;
+    }
+
+    button.classList.toggle("hidden", !available);
   }
 
   showMapScreen(options = {}) {
