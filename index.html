@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#13252a" />
+  <meta name="description" content="Balloon Bastion — an original browser tower-defense game inspired by modern round-based TD games." />
+  <title>Balloon Bastion</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="menuScreen" class="screen">
+      <div class="menu-card">
+        <div class="brand-mark" aria-hidden="true">BB</div>
+        <h1>Balloon Bastion</h1>
+        <p class="subtitle">A deep round-based tower-defense game for the browser.</p>
+        <div class="menu-actions">
+          <button id="playButton" class="primary-button">Play</button>
+          <button id="resumeButton" class="secondary-button">Resume Saved Game</button>
+          <button id="howToPlayButton" class="secondary-button">How to Play</button>
+          <button id="resetSaveButton" class="danger-button">Reset Save</button>
+        </div>
+        <div id="menuVersion" class="menu-footer">Build 1.0 • Canvas Edition</div>
+      </div>
+    </div>
+
+    <div id="setupScreen" class="screen hidden">
+      <div class="setup-card">
+        <div class="top-row">
+          <button id="setupBackButton" class="icon-button">←</button>
+          <h2>Game Setup</h2>
+        </div>
+        <div class="setup-grid">
+          <section>
+            <h3>Map</h3>
+            <div id="mapPicker" class="choice-grid"></div>
+          </section>
+          <section>
+            <h3>Difficulty</h3>
+            <div id="difficultyPicker" class="choice-grid"></div>
+          </section>
+          <section>
+            <h3>Mode</h3>
+            <div id="modePicker" class="choice-grid"></div>
+          </section>
+          <section>
+            <h3>Hero</h3>
+            <div id="heroPicker" class="choice-grid"></div>
+          </section>
+        </div>
+        <div class="setup-summary">
+          <div><span>Starting cash</span><strong id="startCashValue">650</strong></div>
+          <div><span>Starting lives</span><strong id="startLivesValue">100</strong></div>
+          <div><span>Round cap</span><strong id="roundCapValue">100</strong></div>
+        </div>
+        <button id="startGameButton" class="primary-button wide">Start Game</button>
+      </div>
+    </div>
+
+    <div id="howToScreen" class="screen hidden">
+      <div class="how-card">
+        <div class="top-row">
+          <button id="howBackButton" class="icon-button">←</button>
+          <h2>How to Play</h2>
+        </div>
+        <div class="help-content">
+          <p>Place towers away from roads and survive increasingly difficult rounds.</p>
+          <p>Click a tower to inspect its stats. Upgrade one path independently, with crosspath restrictions enforced.</p>
+          <p>Use <kbd>1</kbd>, <kbd>2</kbd>, <kbd>3</kbd> to buy top, middle and bottom path upgrades on the selected tower.</p>
+          <p>Use <kbd>Space</kbd> to start or pause a round, <kbd>F</kbd> for fast-forward, <kbd>Esc</kbd> to cancel placement, and <kbd>Delete</kbd> to sell the selected tower.</p>
+          <p>Abilities are shown in the tower panel when available. Hero XP, tower XP, cash, lives, and round progress save locally.</p>
+          <p>After round 100 the game enters an uncapped freeplay simulation with accelerated scaling.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="gameScreen" class="hidden">
+      <header id="hud">
+        <div class="hud-left">
+          <div class="hud-pill lives-pill"><span class="hud-icon">♥</span><strong id="livesValue">100</strong></div>
+          <div class="hud-pill cash-pill"><span class="hud-icon">$</span><strong id="cashValue">650</strong></div>
+          <div class="hud-pill eco-pill"><span class="hud-icon">↟</span><strong id="ecoValue">100</strong></div>
+          <div class="hud-pill round-pill"><span>ROUND</span><strong id="roundValue">1</strong></div>
+        </div>
+        <div class="hud-center">
+          <div id="statusText">Build Phase</div>
+          <div class="round-progress"><div id="roundProgressBar"></div></div>
+        </div>
+        <div class="hud-right">
+          <button id="pauseButton" class="hud-button">Ⅱ</button>
+          <button id="speedButton" class="hud-button">1×</button>
+          <button id="buildModeButton" class="hud-button">Build</button>
+          <button id="menuButton" class="hud-button">Menu</button>
+        </div>
+      </header>
+
+      <main id="gameRoot">
+        <canvas id="gameCanvas"></canvas>
+
+        <aside id="towerBar">
+          <div class="tower-bar-header">
+            <span>Towers</span>
+            <span id="selectedTowerHint">Select</span>
+          </div>
+          <div id="towerButtons" class="tower-buttons"></div>
+          <button id="heroButton" class="hero-button">★ Hero</button>
+        </aside>
+
+        <aside id="sidePanel">
+          <div id="buildPanel" class="side-card">
+            <h3>Round Settings</h3>
+            <div class="setting-row"><span>Auto-start</span><button id="autoStartToggle" class="toggle active">ON</button></div>
+            <div class="setting-row"><span>Fast-forward</span><button id="fastToggle" class="toggle">OFF</button></div>
+            <div class="setting-row"><span>Round speed</span><strong id="roundSpeedLabel">1.0×</strong></div>
+            <button id="startRoundButton" class="primary-button wide">Start Round</button>
+            <button id="cancelPlacementButton" class="secondary-button wide">Cancel Placement</button>
+          </div>
+
+          <div id="selectionPanel" class="side-card hidden">
+            <div class="selected-heading">
+              <div id="selectionIcon" class="selection-icon">?</div>
+              <div>
+                <h3 id="selectionName">Tower</h3>
+                <small id="selectionLevel">0-0-0</small>
+              </div>
+            </div>
+            <div id="selectionStats" class="stats-grid"></div>
+            <div class="target-row">
+              <span>Targeting</span>
+              <select id="targetModeSelect">
+                <option value="first">First</option>
+                <option value="last">Last</option>
+                <option value="close">Close</option>
+                <option value="strong">Strong</option>
+                <option value="weak">Weak</option>
+              </select>
+            </div>
+            <div class="upgrade-header">Upgrades</div>
+            <div id="upgradeBranches" class="upgrade-branches"></div>
+            <div class="ability-row"><button id="abilityButton" class="ability-button hidden">Ability</button></div>
+            <div class="ability-row"><button id="paragonButton" class="ability-button hidden">Create Paragon</button></div>
+            <div class="tower-actions"><button id="sellButton" class="danger-button">Sell <span id="sellValue">0</span></button></div>
+          </div>
+
+          <div id="heroPanel" class="side-card hidden">
+            <div class="selected-heading">
+              <div id="heroIcon" class="selection-icon">★</div>
+              <div>
+                <h3 id="heroName">Hero</h3>
+                <small id="heroLevel">Level 1</small>
+              </div>
+            </div>
+            <div id="heroStats" class="stats-grid"></div>
+            <div class="hero-xp"><div class="xp-track"><div id="heroXpBar"></div></div><small id="heroXpText">0 / 100 XP</small></div>
+            <div id="heroAbilities" class="hero-abilities"></div>
+          </div>
+        </aside>
+
+        <div id="toastLayer" aria-live="polite"></div>
+        <div id="roundBanner" class="round-banner hidden"></div>
+        <div id="bossBanner" class="boss-banner hidden"></div>
+        <div id="gameOverOverlay" class="overlay hidden">
+          <div class="overlay-card">
+            <h2 id="gameOverTitle">Game Over</h2>
+            <p id="gameOverSummary"></p>
+            <div class="overlay-actions">
+              <button id="restartButton" class="primary-button">Retry</button>
+              <button id="quitButton" class="secondary-button">Main Menu</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
