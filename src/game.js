@@ -1669,6 +1669,17 @@ export class Game {
       tower.ascensionDegree =
         saved.ascensionDegree || 0;
 
+      tower.cooldown.remaining =
+        saved.cooldownRemaining || 0;
+      tower.abilityCooldown.remaining =
+        saved.abilityCooldownRemaining || 0;
+      tower.abilityActive =
+        saved.abilityActive || 0;
+      tower.abilityMultiplier =
+        saved.abilityMultiplier || 1;
+      tower._incomeTimer =
+        saved.incomeTimer || 0;
+
       tower.paragonData =
         saved.paragonData
           ? deepClone(saved.paragonData)
@@ -1698,7 +1709,20 @@ export class Game {
 
       hero.level = saved.level || 1;
       hero.xp = saved.xp || 0;
-      hero.targetMode = saved.targetMode || "first";
+      hero.targetMode =
+        saved.targetMode || "first";
+      hero.cooldown.remaining =
+        saved.cooldownRemaining || 0;
+      hero.abilityCooldown.remaining =
+        saved.abilityCooldownRemaining || 0;
+      hero.abilityActive =
+        saved.abilityActive || 0;
+      hero.abilityMultiplier =
+        saved.abilityMultiplier || 1;
+      hero.totalPops =
+        saved.totalPops || 0;
+      hero.totalDamage =
+        saved.totalDamage || 0;
       return hero;
     }).filter(Boolean);
 
@@ -1736,11 +1760,10 @@ export class Game {
     );
 
     this.traps = (snapshot.traps || []).map(
-      (saved) => ({
-        ...saved,
-        hitIds: new Set(),
-        alive: true
-      })
+      (saved) =>
+        this.trapsystem.constructor
+          ? TrapField.fromSnapshot(saved)
+          : saved
     );
 
     this.rounds.restore(
