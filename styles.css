@@ -123,3 +123,22 @@ kbd { display:inline-block; border:1px solid var(--line); background:#0c1518; pa
 @media (max-width:1100px) { #towerBar { width:240px; } #sidePanel { width:300px; } }
 @media (max-width:850px) { #sidePanel { width:270px; } #towerBar { width:205px; } .setup-grid { grid-template-columns:1fr; } }
 @media (max-width:700px) { #hud { height:58px; } .hud-center { display:none; } #sidePanel { width:min(86vw,340px); top:70px; } #towerBar { left:8px; bottom:8px; width:min(80vw,340px); } .tower-buttons { grid-template-columns:repeat(6,1fr); } .hud-pill:nth-child(3) { display:none; } }
+
+
+.manual-toolbar { display:flex; gap:10px; margin-bottom:14px; }
+.manual-toolbar select { width:min(360px,100%); min-height:40px; padding:0 10px; color:var(--text); background:#101b1f; border:1px solid var(--line); border-radius:10px; }
+.manual-entry { border:1px solid rgba(255,255,255,.07); border-radius:12px; background:rgba(255,255,255,.025); padding:13px 14px; margin-bottom:8px; }
+.manual-entry strong { display:block; color:var(--text); margin-bottom:4px; }
+.manual-entry p { color:#c8d5d8; font-size:13px; line-height:1.55; margin:0; }
+.mastery-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-height:66vh; overflow:auto; padding-right:3px; }
+.mastery-node { border:1px solid var(--line); border-radius:13px; background:rgba(255,255,255,.03); padding:13px; text-align:left; }
+.mastery-node.unlocked { border-color:rgba(108,232,162,.28); background:rgba(108,232,162,.06); }
+.mastery-node.available { border-color:rgba(104,200,255,.28); }
+.mastery-node.locked { opacity:.44; }
+.mastery-node .mastery-head { display:flex; justify-content:space-between; gap:8px; }
+.mastery-node h4 { margin:0; font-size:13px; }
+.mastery-node small { display:block; color:var(--muted); margin:7px 0 12px; line-height:1.45; }
+.mastery-node button { width:100%; min-height:34px; border:1px solid var(--line); border-radius:8px; background:#111d21; cursor:pointer; }
+.mastery-node button:disabled { cursor:not-allowed; opacity:.6; }
+@media (max-width:900px) { .mastery-grid { grid-template-columns:1fr 1fr; } }
+@media (max-width:600px) { .mastery-grid { grid-template-columns:1fr; } }
