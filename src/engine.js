@@ -463,6 +463,9 @@ export class Tower {
     this.highlight=Math.max(0,this.highlight-dt);
     this.cooldown-=dt;
     this.incomeTimer-=dt;
+    for(const key of Object.keys(this.abilityCooldowns)){
+      this.abilityCooldowns[key]=Math.max(0,this.abilityCooldowns[key]-dt);
+    }
     this.recalculate();
     this.applyNearbyBuffs();
     if(this.isSpike){this.updateSpike(dt);return;}
