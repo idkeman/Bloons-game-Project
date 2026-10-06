@@ -103,6 +103,58 @@ assert.ok(sellValue > 0);
 game.sellTower(placed);
 assert.equal(game.towers.length, 0);
 
+const splashTargetA = game.spawnEnemy({ spec: ENEMIES.find((entry) => entry.id === "scout"), pathIndex: 0 });
+const splashTargetB = game.spawnEnemy({ spec: ENEMIES.find((entry) => entry.id === "scout"), pathIndex: 0 });
+splashTargetA.x = 500;
+splashTargetA.y = 350;
+splashTargetB.x = 510;
+splashTargetB.y = 350;
+game.spatial.clear();
+game.spatial.insert(splashTargetA);
+game.spatial.insert(splashTargetB);
+const splashSource = new Tower(game, "sentinel", 450, 350);
+splashSource.stats.pierce = 3;
+const primaryHp = splashTargetA.hp;
+const secondaryHp = splashTargetB.hp;
+game.projectiles.push({
+  dead: false,
+  update() {},
+  impact(targetGame, target) {
+    const result = target.takeDamage(5, this.stats);
+    splashSource.totalDamage += result.damage;
+    targetGame.statsThisRun.damageDealt += result.damage;
+    for (const nearby of targetGame.spatial.queryCircle(target.x, target.y, 60)) {
+      if (nearby === target || nearby.dead || nearby.leaked) continue;
+      nearby.takeDamage(2, this.stats);
+    }
+    this.dead = true;
+  },
+  stats: { pierce: 3, splashDamage: 2, armorBypass: 999 }
+});
+game.projectiles[game.projectiles.length - 1].impact(game, splashTargetA);
+assert.equal(splashTargetA.hp, primaryHp - 5);
+assert.equal(splashTargetB.hp, secondaryHp - 2);
+
+const farm = new Tower(game, "harvester", 760, 600);
+game.towers.push(farm);
+const cashBeforeIncome = game.cash;
+game.update(1.05);
+assert.ok(game.cash >= cashBeforeIncome, "Economy tower failed to generate non-negative passive income.");
+
+farm.pathLevels = [5,0,0];
+farm.stats = farm.computeStats();
+game.cash = 30000;
+const cashBeforeApexAttempt = game.cash;
+const apexAttempt = farm.createApex();
+assert.equal(apexAttempt.ok, false, "Apex creation should fail before all paths reach tier five.");
+assert.equal(game.cash, cashBeforeApexAttempt, "Failed Apex creation changed cash.");
+
+game.cash = 100;
+game.wave = 0;
+game.begin({ mapId: "greenway", difficultyId: "standard", challengeId: "scout" });
+assert.equal(game.towers.length, 0, "New run retained towers.");
+assert.equal(game.statsThisRun.kills, 0, "New run retained kill statistics.");
+
 console.log("PASS: data registry");
 console.log("PASS: game construction");
 console.log("PASS: placement");
