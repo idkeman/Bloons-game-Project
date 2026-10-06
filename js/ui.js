@@ -138,7 +138,16 @@ function renderSelection(tower) {
 
   refs.apex.classList.toggle("hidden", !tower.canCreateApex());
   refs.apex.disabled = game.cash < 25000;
-  refs.ability.classList.add("hidden");
+
+  const ability = tower.spec.ability;
+  const abilityVisible = Boolean(ability);
+  refs.ability.classList.toggle("hidden", !abilityVisible);
+  if (abilityVisible) {
+    const ready = tower.abilityReady();
+    refs.ability.disabled = !ready;
+    refs.ability.textContent = ready ? ability.name : ability.name + " (" + Math.ceil(tower.abilityCooldown) + "s)";
+    refs.ability.title = ability.description;
+  }
 
   document.querySelectorAll(".target-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.target === tower.targetMode);
@@ -220,6 +229,15 @@ refs.closeSelection.addEventListener("click", () => game.selectTower(null));
 refs.sell.addEventListener("click", () => {
   if (game.selectedTower) game.sellTower(game.selectedTower);
 });
+refs.ability.addEventListener("click", () => {
+  if (!game.selectedTower) return;
+  const result = game.selectedTower.useAbility();
+  if (!result.ok) toast(result.reason);
+  else toast(game.selectedTower.spec.ability.name + " activated.");
+  renderHud();
+  renderSelection(game.selectedTower);
+});
+
 refs.apex.addEventListener("click", () => {
   if (!game.selectedTower) return;
   const result = game.selectedTower.createApex();
@@ -257,6 +275,11 @@ game.on("towerPlaced", (tower) => {
 game.on("towerUpgraded", (tower) => {
   renderHud();
   renderSelection(tower);
+});
+game.on("abilityUsed", ({ tower, ability, affected }) => {
+  renderHud();
+  renderSelection(tower);
+  toast(ability.name + " affected " + affected + " target(s).");
 });
 game.on("towerSold", ({value}) => {
   renderHud();
