@@ -1,4 +1,6 @@
 import { TOWERS, HEROES, MAPS, DIFFICULTIES, MODES, PARAGONS } from './data.js';
+import { CODEX, categories, byCategory } from './codex.js';
+import { MASTERY, MasteryProfile } from './mastery.js';
 import { GameState } from './engine.js';
 
 const money = n => `$${Math.max(0,Math.floor(n)).toLocaleString()}`;
@@ -9,10 +11,10 @@ export class UIController {
     this.game=game;
     this.els={};
     const ids=[
-      'menuScreen','setupScreen','howToScreen','gameScreen','playButton','resumeButton','howToPlayButton','resetSaveButton','setupBackButton','howBackButton','startGameButton','mapPicker','difficultyPicker','modePicker','heroPicker','startCashValue','startLivesValue','roundCapValue','livesValue','cashValue','ecoValue','roundValue','statusText','roundProgressBar','pauseButton','speedButton','buildModeButton','menuButton','towerButtons','heroButton','sidePanel','buildPanel','selectionPanel','heroPanel','selectedTowerHint','selectionIcon','selectionName','selectionLevel','selectionStats','targetModeSelect','upgradeBranches','abilityButton','paragonButton','sellButton','sellValue','heroIcon','heroName','heroLevel','heroStats','heroXpBar','heroXpText','heroAbilities','autoStartToggle','fastToggle','roundSpeedLabel','startRoundButton','cancelPlacementButton','toastLayer','roundBanner','bossBanner','gameOverOverlay','gameOverTitle','gameOverSummary','restartButton','quitButton'
+      'menuScreen','setupScreen','howToScreen','fieldManualScreen','masteryScreen','gameScreen','playButton','resumeButton','howToPlayButton','resetSaveButton','fieldManualButton','masteryButton','manualBackButton','masteryBackButton','manualCategorySelect','manualEntries','masteryTree','masteryPointsLabel','setupBackButton','howBackButton','startGameButton','mapPicker','difficultyPicker','modePicker','heroPicker','startCashValue','startLivesValue','roundCapValue','livesValue','cashValue','ecoValue','roundValue','statusText','roundProgressBar','pauseButton','speedButton','buildModeButton','menuButton','towerButtons','heroButton','sidePanel','buildPanel','selectionPanel','heroPanel','selectedTowerHint','selectionIcon','selectionName','selectionLevel','selectionStats','targetModeSelect','upgradeBranches','abilityButton','paragonButton','sellButton','sellValue','heroIcon','heroName','heroLevel','heroStats','heroXpBar','heroXpText','heroAbilities','autoStartToggle','fastToggle','roundSpeedLabel','startRoundButton','cancelPlacementButton','toastLayer','roundBanner','bossBanner','gameOverOverlay','gameOverTitle','gameOverSummary','restartButton','quitButton'
     ];
     for(const id of ids)this.els[id]=document.getElementById(id);
-    this.selectedMap='meadow';this.selectedDifficulty='normal';this.selectedMode='standard';this.selectedHero='ember';this.buildMode=true;
+    this.selectedMap='meadow';this.selectedDifficulty='normal';this.selectedMode='standard';this.selectedHero='ember';this.buildMode=true;this.mastery=MasteryProfile.load();
     this.bind();this.renderSetupPickers();this.renderTowerButtons();this.renderResumeState();
     game.onToast=(msg,kind)=>this.toast(msg,kind);
   }
@@ -21,6 +23,11 @@ export class UIController {
     e.playButton.onclick=()=>this.showScreen('setup');
     e.resumeButton.onclick=()=>{const save=this.game.load();if(save&&save.mapId){this.game.restoreSavedGame(save);this.showGame();}else this.toast('No saved game found','danger');};
     e.howToPlayButton.onclick=()=>this.showScreen('howTo');
+    e.fieldManualButton.onclick=()=>{this.renderManual();this.showScreen('fieldManual');};
+    e.masteryButton.onclick=()=>{this.renderMastery();this.showScreen('mastery');};
+    e.manualBackButton.onclick=()=>this.showScreen('menu');
+    e.masteryBackButton.onclick=()=>this.showScreen('menu');
+    e.manualCategorySelect.onchange=()=>this.renderManualEntries();
     e.resetSaveButton.onclick=()=>{if(confirm('Delete the saved Balloon Bastion game?')){this.game.clearSave();this.toast('Save deleted','good');this.renderResumeState();}};
     e.setupBackButton.onclick=()=>this.showScreen('menu');
     e.howBackButton.onclick=()=>this.showScreen('menu');
@@ -52,11 +59,54 @@ export class UIController {
     else if(ev.key.toLowerCase()==='e'&&this.game.selected)this.game.activateSelectedAbility(0);
   }
   showScreen(name){
-    this.els.menuScreen.classList.toggle('hidden',name!=='menu');this.els.setupScreen.classList.toggle('hidden',name!=='setup');this.els.howToScreen.classList.toggle('hidden',name!=='howTo');this.els.gameScreen.classList.toggle('hidden',name!=='game');
+    this.els.menuScreen.classList.toggle('hidden',name!=='menu');this.els.setupScreen.classList.toggle('hidden',name!=='setup');this.els.howToScreen.classList.toggle('hidden',name!=='howTo');this.els.fieldManualScreen.classList.toggle('hidden',name!=='fieldManual');this.els.masteryScreen.classList.toggle('hidden',name!=='mastery');this.els.gameScreen.classList.toggle('hidden',name!=='game');
   }
   showGame(){this.showScreen('game');}
   showMenuFromGame(){this.game.save();this.game.state=GameState.MENU;this.showScreen('menu');this.renderResumeState();}
   renderResumeState(){this.els.resumeButton.classList.toggle('hidden',!this.game.load());}
+  renderManual() {
+    const select=this.els.manualCategorySelect;
+    if (!select.options.length) {
+      select.innerHTML=categories().map(category=>'<option value="'+category.replace(/"/g,'&quot;')+'">'+category+'</option>').join('');
+    }
+    this.renderManualEntries();
+  }
+
+  renderManualEntries() {
+    const category=this.els.manualCategorySelect.value || categories()[0];
+    const entries=byCategory(category);
+    this.els.manualEntries.innerHTML=entries.map(entry =>
+      '<article class="manual-entry"><strong>'+entry.title+'</strong><p>'+entry.body+'</p></article>'
+    ).join('');
+  }
+
+  renderMastery() {
+    const effects=this.mastery.getEffects();
+    this.els.masteryPointsLabel.textContent=this.mastery.points.toLocaleString()+' points available';
+    this.els.masteryTree.innerHTML='';
+    for (const [treeName, nodes] of Object.entries(MASTERY)) {
+      const heading=document.createElement('div');
+      heading.className='mastery-tree-heading';
+      heading.textContent=treeName.charAt(0).toUpperCase()+treeName.slice(1);
+      this.els.masteryTree.appendChild(heading);
+      for (const node of nodes) {
+        const card=document.createElement('article');
+        const unlocked=this.mastery.has(node.id);
+        const available=this.mastery.canUnlock(node.id);
+        card.className='mastery-node '+(unlocked?'unlocked':available?'available':'locked');
+        const prereq=(node.requires||[]).length ? 'Requires: '+node.requires.join(', ') : 'No prerequisite';
+        card.innerHTML='<div class="mastery-head"><h4>'+node.name+'</h4><span>'+node.cost+'★</span></div><small>'+node.description+'<br>'+prereq+'</small>';
+        const button=document.createElement('button');
+        button.disabled=unlocked || !available;
+        button.textContent=unlocked?'Unlocked':available?'Unlock':'Locked';
+        button.onclick=()=>{if(this.mastery.unlock(node.id))this.renderMastery();};
+        card.appendChild(button);
+        this.els.masteryTree.appendChild(card);
+      }
+    }
+    this.els.masteryTree.dataset.effects=JSON.stringify(effects);
+  }
+
   renderSetupPickers(){
     const render=(container,data,field)=>{container.innerHTML='';for(const obj of Object.values(data)){const b=document.createElement('button');b.className='choice-card';b.innerHTML=`<strong>${obj.name}</strong><small>${obj.description||''}</small>`;if(obj.id===this[field])b.classList.add('active');b.onclick=()=>{this[field]=obj.id;this.renderSetupPickers();this.updateSetupSummary();};container.appendChild(b);}};
     render(this.els.mapPicker,MAPS,'selectedMap');render(this.els.difficultyPicker,DIFFICULTIES,'selectedDifficulty');render(this.els.modePicker,MODES,'selectedMode');render(this.els.heroPicker,HEROES,'selectedHero');this.updateSetupSummary();
