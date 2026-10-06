@@ -21,7 +21,10 @@ ui.bind({
   progressBack: () => ui.showMenu(),
   manualBack: () => ui.showMenu(),
   startMap: (mapId, options) => {
-    game.start(mapId, { sandbox: Boolean(options?.sandbox) });
+    game.start(mapId, {
+      sandbox: Boolean(options?.sandbox),
+      difficulty: options?.difficulty || "normal"
+    });
     ui.showGame();
   },
   startRound: () => game.startRound(),
