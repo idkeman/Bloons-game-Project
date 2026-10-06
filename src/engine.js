@@ -633,7 +633,8 @@ export class Tower {
     const key=`${this.id}-${index}`;
     const cd=this.abilityCooldowns[key]||0;
     if(cd>0)return false;
-    this.abilityCooldowns[key]=ability.cooldown;
+    const cooldownReduction=this.game.masteryEffects?.heroCooldown||0;
+    this.abilityCooldowns[key]=ability.cooldown*Math.max(.6,1-cooldownReduction);
     if(ability.name==='Scorch Ring'){
       for(const b of this.game.bloons){if(!b.dead&&dist2(this,b)<220*220){b.takeDamage(65,this);b.slow=.45;b.burn=Math.max(b.burn,3);b.burnDamage=Math.max(b.burnDamage,12);}}
       this.game.spawnRing(this.x,this.y,230,'#ff9e62');
@@ -641,7 +642,8 @@ export class Tower {
       const target=this.selectTarget(true)||this.game.bloons[0];
       if(target)this.game.meteor(target.x,target.y,120,250);
     } else if(ability.name==='Supernova'){
-      for(const b of this.game.bloons){if(!b.dead)b.takeDamage(160+this.levels[0]*20,this,{ignoreArmor:true});}
+      const power=1+(this.game.masteryEffects?.abilityPower||0);
+      for(const b of this.game.bloons){if(!b.dead)b.takeDamage((160+this.levels[0]*20)*power,this,{ignoreArmor:true});}
       this.game.spawnRing(this.game.worldWidth/2,this.game.worldHeight/2,800,'#ffe37a');
     } else if(ability.name==='Marked Shot'){
       this.game.globalTargetMode='strong';this.game.globalTargetTimer=12;
@@ -1085,6 +1087,8 @@ export class GameEngine {
     const def=HEROES[this.heroId];if(this.cash<def.cost){this.toast('Not enough cash for hero','danger');return null;}
     if(!this.canPlace(x,y,{range:def.base.range}))return null;
     this.cash-=def.cost;this.hero=new HeroUnit(this,this.heroId,x,y);this.hero.recalculate();this.heroPlaced=true;
+    const startingXp=this.masteryEffects?.heroStartingXp||0;
+    if(startingXp)this.hero.heroGainXp(startingXp);
     this.achievements.stats.heroPlaced+=1;
     this.achievements.recordHeroType(this.heroId);this.selected=this.hero;this.pendingTower=null;this.toast(`${def.name} deployed`,'good');this.save();return this.hero;
   }
