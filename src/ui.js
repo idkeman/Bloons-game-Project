@@ -50,6 +50,7 @@ export class UIController {
     document.querySelector("#continue-btn").onclick = actions.continue;
     document.querySelector("#sandbox-btn").onclick = actions.sandbox;
     document.querySelector("#progress-btn").onclick = actions.progress;
+    document.querySelector("#knowledge-btn").onclick = actions.knowledge;
     document.querySelector("#glossary-btn").onclick = actions.glossary;
 
     document.querySelector("#map-back-btn").onclick = actions.mapBack;
