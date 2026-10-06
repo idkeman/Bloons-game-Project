@@ -254,7 +254,8 @@ export class RoundController {
 
     const reward =
       rewardDefinition.cashReward *
-      (this.game.gameMode?.incomeMultiplier || 1) *
+      (this.game.gameMode?.incomeMultiplier || 1);
+
     this.game.addCash(
       Math.max(1, Math.round(reward)),
       "round"
