@@ -153,7 +153,7 @@ class Enemy {
 
   canBeTargetedBy(tower) {
     if (this.dead || this.leaked) return false;
-    if (this.stealth && !tower.stats.stealthBypass) return false;
+    if (this.stealth && !tower.stats.stealthBypass && tower.game.globalRevealTimer <= 0) return false;
     return true;
   }
 
@@ -478,6 +478,156 @@ class Tower {
     return Math.floor(this.totalSpent * GAME.sellRatio);
   }
 
+  abilityReady() {
+    return Boolean(this.spec.ability) && this.abilityCooldown <= 0;
+  }
+
+  useAbility() {
+    const ability = this.spec.ability;
+    if (!ability) return { ok:false, reason:"This tower has no active ability." };
+    if (this.abilityCooldown > 0) return { ok:false, reason:"Ability cooling down." };
+
+    const game = this.game;
+    const duration = ability.duration ?? 0;
+    let affected = 0;
+
+    switch (ability.kind) {
+      case "cashBurst": {
+        const payout = Math.max(1, Math.floor(this.totalSpent * 0.16 + game.wave * 8));
+        game.cash += payout;
+        game.statsThisRun.creditsEarned += payout;
+        game.save.statistics.creditsEarned += payout;
+        game.particles.burst(this.x, this.y, this.spec.color, 18, 90);
+        break;
+      }
+
+      case "overclock":
+        this.effects.set("overclock", { duration, cooldownMul: 0.42 });
+        game.particles.burst(this.x, this.y, this.spec.color, 14, 75);
+        affected = game.countTowersInRadius(this, this.stats.range + this.stats.supportRange);
+        break;
+
+      case "focus":
+        this.effects.set("focus", { duration, cooldownMul: 0.58, damageMul: 1.35 });
+        game.particles.burst(this.x, this.y, this.spec.color, 16, 95);
+        break;
+
+      case "freeze":
+        for (const enemy of game.enemies.values()) {
+          if (enemy.dead || enemy.leaked) continue;
+          if (distance(this, enemy) > this.stats.range + 70) continue;
+          enemy.addEffect("stun", { factor: 0.01, duration: duration * 0.65 });
+          enemy.addEffect("slow", { factor: 0.45, duration });
+          affected += 1;
+        }
+        game.globalRevealTimer = Math.max(game.globalRevealTimer, duration + 2);
+        game.particles.burst(this.x, this.y, this.spec.color, 30, 160);
+        break;
+
+      case "arc-discharge": {
+        const targets = [];
+        for (const enemy of game.enemies.values()) {
+          if (enemy.dead || enemy.leaked || distance(this, enemy) > this.stats.range) continue;
+          if (!enemy.visible && enemy.stealth && game.globalRevealTimer <= 0 && !this.stats.stealthBypass) continue;
+          targets.push(enemy);
+        }
+        targets.sort((a, b) => b.progress - a.progress);
+        const count = Math.min(ability.count ?? 10, targets.length);
+        for (let i = 0; i < count; i++) {
+          const result = targets[i].takeDamage(this.stats.damage * 1.8, {
+            armorBypass: this.stats.armorBypass + 4,
+            resistancePierce: this.stats.resistancePierce,
+            ignoreShield: this.stats.shieldBreak > 0
+          });
+          this.totalDamage += result.damage;
+          game.statsThisRun.damageDealt += result.damage;
+          if (result.killed) this.killCount += 1;
+          affected += 1;
+          game.particles.burst(targets[i].x, targets[i].y, this.spec.color, 5, 65);
+        }
+        break;
+      }
+
+      case "barrier":
+      case "emergency-barrier":
+        game.lives += ability.repair ?? 0;
+        this.effects.set("barrier", { duration, damageReduction: 0.25 });
+        game.particles.burst(this.x, this.y, this.spec.color, 24, 120);
+        break;
+
+      case "area":
+        for (const enemy of game.enemies.values()) {
+          if (enemy.dead || enemy.leaked || distance(this, enemy) > this.stats.range) continue;
+          const result = enemy.takeDamage(this.stats.damage * 2.2 + 12, {
+            armorBypass: this.stats.armorBypass + 8,
+            resistancePierce: this.stats.resistancePierce
+          });
+          enemy.addEffect("slow", { factor: 0.55, duration: 2.5 });
+          this.totalDamage += result.damage;
+          game.statsThisRun.damageDealt += result.damage;
+          if (result.killed) this.killCount += 1;
+          affected += 1;
+        }
+        game.particles.burst(this.x, this.y, this.spec.color, 40, 190);
+        break;
+
+      case "bossBurst":
+        for (const enemy of game.enemies.values()) {
+          if (enemy.dead || enemy.leaked) continue;
+          const result = enemy.takeDamage(this.stats.damage * (enemy.boss ? 4 : 1.8), {
+            armorBypass: this.stats.armorBypass + 25,
+            resistancePierce: Math.min(1, this.stats.resistancePierce + 0.35)
+          });
+          if (result.damage > 0) {
+            this.totalDamage += result.damage;
+            game.statsThisRun.damageDealt += result.damage;
+            affected += 1;
+          }
+        }
+        game.particles.burst(this.x, this.y, this.spec.color, 55, 240);
+        break;
+
+      case "reveal":
+      case "ghost-net":
+        game.globalRevealTimer = Math.max(game.globalRevealTimer, duration || 10);
+        this.effects.set("scanBoost", { duration: duration || 10, rangeMul: 1.22, cooldownMul: 0.82 });
+        for (const enemy of game.enemies.values()) {
+          if (enemy.stealth) {
+            enemy.visible = true;
+            affected += 1;
+          }
+        }
+        game.particles.burst(this.x, this.y, this.spec.color, 22, 130);
+        break;
+
+      default:
+        this.effects.set("overclock", { duration: duration || 6, cooldownMul: 0.55 });
+        break;
+    }
+
+    this.abilityCooldown = ability.cooldown;
+    playSound("ability");
+    game.emit("abilityUsed", { tower:this, ability, affected });
+    game.recalculateAuras();
+    return { ok:true, affected };
+  }
+
+  getAttackCooldown() {
+    let cooldown = this.stats.attackCooldown;
+    for (const effect of this.effects.values()) {
+      if (effect.cooldownMul) cooldown *= effect.cooldownMul;
+    }
+    return Math.max(0.06, cooldown);
+  }
+
+  getDamageMultiplier() {
+    let multiplier = 1;
+    for (const effect of this.effects.values()) {
+      if (effect.damageMul) multiplier *= effect.damageMul;
+    }
+    return multiplier;
+  }
+
   attack() {
     const target = this.game.findTarget(this, this.stats.targetMode);
     if (!target) return;
@@ -485,7 +635,7 @@ class Tower {
     const count = Math.max(1, this.stats.projectileCount);
     for (let i = 0; i < count; i++) {
       const stats = {
-        damage: this.stats.damage,
+        damage: this.stats.damage * this.getDamageMultiplier(),
         pierce: Math.max(1, this.stats.pierce),
         speed: this.stats.projectileSpeed || 480,
         velocityX: Math.cos(i / count * TAU) * 70,
@@ -504,13 +654,17 @@ class Tower {
       };
       this.game.projectiles.push(new Projectile(this.game, this, target, stats));
     }
-    this.attackTimer = this.stats.attackCooldown;
+    this.attackTimer = this.getAttackCooldown();
     if (this.apex) this.game.particles.burst(this.x, this.y, this.spec.color, 2, 25);
   }
 
   update(dt) {
     this.attackTimer -= dt;
     this.abilityCooldown = Math.max(0, this.abilityCooldown - dt);
+    for (const [name, effect] of this.effects) {
+      effect.duration -= dt;
+      if (effect.duration <= 0) this.effects.delete(name);
+    }
     if (this.attackTimer <= 0) this.attack();
   }
 }
@@ -531,6 +685,7 @@ class Game {
     this.currentMap = MAPS[0];
     this.currentDifficulty = "standard";
     this.currentChallenge = "scout";
+    this.globalRevealTimer = 0;
     this.cash = GAME.startingCash;
     this.lives = GAME.startingLives;
     this.wave = 0;
@@ -668,6 +823,7 @@ class Game {
     this.deleteMode = false;
     this.totalTime = 0;
     this.incomeTimer = 0;
+    this.globalRevealTimer = 0;
     this.statsThisRun = {
       kills: 0, bosses: 0, leaks: 0, creditsEarned: 0,
       damageDealt: 0, towersPlaced: 0, towersSold: 0, wavesWon: 0
@@ -801,6 +957,7 @@ class Game {
   update(dt) {
     this.totalTime += dt;
     this.waveTimer += dt;
+    this.globalRevealTimer = Math.max(0, this.globalRevealTimer - dt);
     this.incomeTimer += dt;
 
     if (this.incomeTimer >= 1) {
@@ -984,6 +1141,15 @@ class Game {
         tower.stats.damage *= 1 + support.stats.buffDamage;
       }
     }
+  }
+
+  countTowersInRadius(sourceTower, radius) {
+    let count = 0;
+    for (const tower of this.towers) {
+      if (tower === sourceTower) continue;
+      if (distance(sourceTower, tower) <= radius) count += 1;
+    }
+    return count;
   }
 
   findTarget(tower, mode) {
