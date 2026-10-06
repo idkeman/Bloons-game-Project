@@ -1562,6 +1562,9 @@ export class Game {
         ascended: tower.ascended,
         ascensionDegree: tower.ascensionDegree,
         paths: tower.config.paths,
+        paragon: tower.paragonData
+          ? deepClone(tower.paragonData)
+          : null,
         canAscend: (
           tower.pathLevels.includes(5) &&
           this.towers.filter(
@@ -2046,18 +2049,47 @@ export class Game {
       ctx.fill();
       ctx.stroke();
 
-      if (tower.ascended) {
+      if (tower.ascended && tower.paragonData) {
+        const points = 8;
+        const auraColor = tower.paragonData.color;
+
+        ctx.strokeStyle = auraColor;
+        ctx.globalAlpha = 0.42;
+        ctx.lineWidth = 2;
+
+        for (let index = 0; index < points; index += 1) {
+          const angle =
+            (Math.PI * 2 * index) / points +
+            this.clock * 0.7;
+
+          const inner = 19;
+          const outer =
+            27 +
+            Math.sin(this.clock * 2 + index) * 3;
+
+          ctx.beginPath();
+          ctx.moveTo(
+            tower.x + Math.cos(angle) * inner,
+            tower.y + Math.sin(angle) * inner
+          );
+          ctx.lineTo(
+            tower.x + Math.cos(angle) * outer,
+            tower.y + Math.sin(angle) * outer
+          );
+          ctx.stroke();
+        }
+
+        ctx.globalAlpha = 1;
         ctx.beginPath();
         ctx.arc(
           tower.x,
           tower.y,
-          20,
+          21,
           0,
           Math.PI * 2
         );
-        ctx.strokeStyle =
-          "rgba(255,209,102,.8)";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = auraColor;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
       }
 
