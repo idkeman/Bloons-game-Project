@@ -64,6 +64,7 @@ window.addEventListener("keydown", event => game.handleKey(event));
 window.addEventListener("resize", () => game.resize());
 
 ui.showMenu();
+ui.renderMapList(MAPS);
 ui.setProfile(save.profile());
 
 game.startLoop();
