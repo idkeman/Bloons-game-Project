@@ -157,7 +157,12 @@ export class HeroUnit {
     }
 
     this.abilityCooldown.reset(
-      this.heroId === "forge" ? 28 : 22
+      (
+        this.heroId === "forge"
+          ? 28
+          : 22
+      ) *
+      (game.gameMode?.abilityCooldownMultiplier || 1)
     );
 
     if (this.heroId === "nova") {
