@@ -1,5 +1,6 @@
 import { Projectile } from "./entities.js";
 import { angleTo, clamp, distance, IdFactory } from "./math.js";
+import { applyTowerRule } from "./tower_rules.js";
 
 export class CombatSystem {
   constructor(game) {
@@ -8,7 +9,11 @@ export class CombatSystem {
   }
 
   chooseTarget(tower) {
-    const attack = tower.getAttackData();
+    const attack = applyTowerRule(
+      tower.getAttackData(),
+      tower.type,
+      this.chooseTarget(tower)
+    );
 
     const candidates = this.game.bloons.filter((bloon) => {
       if (!bloon.alive) {
@@ -119,7 +124,7 @@ export class CombatSystem {
       return;
     }
 
-    const target = this.chooseTarget(tower);
+    const target = targetPreview;
 
     if (!target) {
       return;
