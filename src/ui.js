@@ -59,6 +59,8 @@ export class UIController {
 
     document.querySelector("#save-btn").onclick = actions.save;
     document.querySelector("#menu-btn").onclick = actions.menu;
+    document.querySelector("#restart-btn").onclick = actions.restart;
+    document.querySelector("#end-menu-btn").onclick = actions.menu;
     document.querySelector("#close-selection-btn").onclick = actions.closeSelection;
     this.nodes.targetButton.onclick = () => actions.cycleTarget();
 
@@ -471,12 +473,44 @@ export class UIController {
   }
 
   setGameState(state) {
+    if (state === "running") {
+      this.showGameEnd(false);
+    }
+
     if (state === "paused") {
       this.toast("Game paused.");
     } else if (state === "won") {
       this.toast("Run complete.");
     } else if (state === "lost") {
       this.toast("Run failed.");
+      this.showGameEnd(true);
+    }
+  }
+
+  showGameEnd(defeat, title = "") {
+    const overlay = document.querySelector("#end-overlay");
+
+    if (!overlay) {
+      return;
+    }
+
+    overlay.classList.toggle(
+      "hidden",
+      !defeat && !title
+    );
+
+    if (defeat) {
+      document.querySelector("#end-kicker").textContent = "RUN FAILED";
+      document.querySelector("#end-title").textContent = "Defense collapsed";
+      document.querySelector("#end-subtitle").textContent = "The route reached the exit.";
+      return;
+    }
+
+    if (title) {
+      document.querySelector("#end-kicker").textContent = "RUN COMPLETE";
+      document.querySelector("#end-title").textContent = title;
+      document.querySelector("#end-subtitle").textContent = "The field is secure.";
+      overlay.classList.remove("hidden");
     }
   }
 
