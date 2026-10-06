@@ -87,6 +87,29 @@ await page.locator("#continueGameButton").click();
 await page.waitForTimeout(150);
 assert.equal(await page.locator("#stageOverlay").isVisible(), false);
 
+
+await page.evaluate(() => localStorage.removeItem("skyfront-dominion-save-v1"));
+await page.reload({ waitUntil: "networkidle" });
+await page.locator("#startGameButton").click();
+await page.locator("#heroPalette .tower-button").first().click();
+
+const heroBox = await page.locator("#gameCanvas").boundingBox();
+assert.ok(heroBox);
+const heroPoint = { x: heroBox.x + heroBox.width * 0.76, y: heroBox.y + heroBox.height * 0.16 };
+await page.mouse.click(heroPoint.x, heroPoint.y);
+await page.waitForTimeout(100);
+assert.equal(await page.locator("#selectedHeroPanel").isVisible(), false);
+
+await page.mouse.click(heroPoint.x, heroPoint.y);
+await page.waitForTimeout(100);
+assert.equal(await page.locator("#selectedHeroPanel").isVisible(), true);
+assert.match(await page.locator("#selectedHeroName").textContent(), /Aster Vale/);
+await page.locator("#heroAbilityButton").click();
+await page.waitForTimeout(80);
+assert.match(await page.locator("#heroAbilityButton").textContent(), /\(/);
+await page.locator('[data-target="far"]').last().click();
+assert.match(await page.locator("#selectedHeroPanel .target-button.active").textContent(), /Far/);
+
 assert.equal(errors.length, 0, errors.join("\n"));
 await browser.close();
 
