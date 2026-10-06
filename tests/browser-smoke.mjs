@@ -288,6 +288,7 @@ await page.evaluate(() => {
   const zone = game.map.waterZones[0];
   const x = (zone.x + zone.w / 2) * game.width;
   const y = 0.08 * game.height;
+  const rect = game.canvas.getBoundingClientRect();
 
   game.canvas.dispatchEvent(
     new PointerEvent("pointerdown", {
