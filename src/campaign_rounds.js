@@ -194,6 +194,7 @@ export const ROUND_TABLE = {
     cashReward: 79,
     endDelay: 2,
     packages: [
+      { type: "bossTitan", count: 1, spacing: 0.8, fortified: true },
       { type: "green", count: 10, spacing: 0.15 },
       { type: "yellow", count: 10, spacing: 0.12 },
       { type: "pink", count: 12, spacing: 0.1 },
@@ -436,6 +437,7 @@ export const ROUND_TABLE = {
     cashReward: 134,
     endDelay: 2,
     packages: [
+      { type: "bossTitan", count: 1, spacing: 0.8, fortified: true },
       { type: "yellow", count: 50, spacing: 0.1 },
       { type: "pink", count: 52, spacing: 0.095 },
       { type: "zebra", count: 36, spacing: 0.13, fortified: true },
