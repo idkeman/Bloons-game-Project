@@ -74,7 +74,6 @@ game.on("state", state => ui.setGameState(state));
 game.on("hud", hud => ui.updateHUD(hud));
 game.on("towerMenu", towers => ui.renderTowerButtons(towers));
 game.on("selection", selection => ui.renderSelection(selection));
-game.on("toast", message => ui.toast(message.text, message.kind));
 game.on("progress", profile => ui.updateProgress(profile));
 game.on("mapList", maps => ui.renderMapList(maps));
 game.on("manual", glossary => ui.showManual(glossary));
