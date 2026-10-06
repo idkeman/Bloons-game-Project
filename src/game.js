@@ -240,6 +240,7 @@ export class Game {
     }
 
     if (
+      !this.freeplay &&
       this.rounds.current >= 100 &&
       !this.rounds.active &&
       this.bloons.length === 0 &&
@@ -465,6 +466,7 @@ export class Game {
 
     this.map = deepClone(map);
     this.sandbox = Boolean(options.sandbox);
+    this.freeplay = Boolean(options.freeplay);
 
     this.difficultyId = options.difficulty || "normal";
     this.difficulty =
@@ -1574,6 +1576,7 @@ export class Game {
 
     this.start(snapshot.mapId, {
       sandbox: Boolean(snapshot.sandbox),
+      freeplay: Boolean(snapshot.freeplay),
       difficulty: snapshot.difficultyId || "normal"
     });
 
@@ -1627,6 +1630,7 @@ export class Game {
       mapId: this.map?.id || null,
       difficultyId: this.difficultyId,
       sandbox: this.sandbox,
+      freeplay: this.freeplay,
       cash: this.cash,
       lives: this.lives,
       round: this.rounds.current,
