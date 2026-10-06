@@ -636,17 +636,6 @@ export class UIController {
     this.renderKnowledge(nodes, credits);
   }
 
-  toast(message) {
-    const item = document.createElement("div");
-    item.className = "toast";
-    item.textContent = message;
-
-    this.nodes.toastStack.appendChild(item);
-
-    window.setTimeout(() => item.remove(), 2200);
-  }
-}
-
 
   renderKnowledge(nodes, credits) {
     this.nodes.knowledgeCredits.textContent =
@@ -728,3 +717,15 @@ export class UIController {
 
     this.nodes.knowledgeContent.appendChild(grid);
   }
+
+  toast(message) {
+    const item = document.createElement("div");
+    item.className = "toast";
+    item.textContent = message;
+
+    this.nodes.toastStack.appendChild(item);
+
+    window.setTimeout(() => item.remove(), 2200);
+  }
+}
+
