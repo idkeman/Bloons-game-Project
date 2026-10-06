@@ -1,5 +1,6 @@
 import { TOWERS, BLOONS, HEROES, PARAGONS, DIFFICULTIES, MODES, MAPS, ROUND_SPECIALS } from './data.js';
 import { ROUND_CATALOG } from './round-catalog.js';
+import { ROUND_CATALOG_EXTENDED } from './round-catalog-extended.js';
 import { fireTowerBehavior, applyTowerBehaviorUpgrades } from './tower-behaviors.js';
 import { MasteryProfile } from './mastery.js';
 import { AchievementProfile } from './achievements.js';
@@ -898,7 +899,7 @@ export class GameEngine {
     } else this.roundTimer=Math.max(0,this.roundTimer-dt);
   }
   buildRoundPlan(round){
-    const catalog=ROUND_CATALOG[round];
+    const catalog=ROUND_CATALOG_EXTENDED[round]||ROUND_CATALOG[round];
     const plan=[];
 
     if(catalog){
