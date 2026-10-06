@@ -163,9 +163,9 @@ test("every tower's active ability can execute against every enemy definition", 
   }
 });
 
-test("every tower has a Paragon rule and three Tier-5 sacrifices can qualify", () => {
+test("every tower has a Paragon rule and three branch-specific Tier-5 sacrifices can qualify", () => {
   for (const [type, config] of Object.entries(TOWERS)) {
-    const makeTower = (suffix) => {
+    const makeTower = (suffix, path) => {
       const tower = new Tower({
         id: type + "-paragon-" + suffix,
         type,
@@ -174,23 +174,38 @@ test("every tower has a Paragon rule and three Tier-5 sacrifices can qualify", (
         config
       });
 
-      tower.pathLevels = [5, 0, 0];
+      tower.pathLevels[path] = 5;
       return tower;
     };
 
-    const towers = [
-      makeTower(1),
-      makeTower(2),
-      makeTower(3)
+    const valid = [
+      makeTower(1, 0),
+      makeTower(2, 1),
+      makeTower(3, 2)
+    ];
+
+    const invalid = [
+      makeTower(4, 0),
+      makeTower(5, 0),
+      makeTower(6, 0)
     ];
 
     assert.ok(PARAGONS[type]);
+
     assert.equal(
       canCreateParagon(
-        towers,
+        valid,
         type
       ),
       true
+    );
+
+    assert.equal(
+      canCreateParagon(
+        invalid,
+        type
+      ),
+      false
     );
   }
 });
