@@ -67,8 +67,7 @@ export class Game {
     this.lives = 0;
     this.round = 0;
     this.speed = 1;
-    this.autoRounds =
-      Boolean(this.gameMode.autoRounds);
+    this.autoRounds = false;
     this.pausedBeforeMenu = false;
 
     this.towers = [];
@@ -293,6 +292,7 @@ export class Game {
         Math.round(
           (bloon.data.reward || 1) *
           this.difficulty.cash *
+          this.gameMode.cashMultiplier *
           (this.sandbox ? 2 : 1)
         )
       );
@@ -362,7 +362,9 @@ export class Game {
       const cycles = Math.floor(tower._incomeTimer / interval);
       tower._incomeTimer -= cycles * interval;
       this.addCash(
-        baseIncome * cycles,
+        baseIncome *
+          cycles *
+          this.gameMode.incomeMultiplier,
         "tower-income",
         tower
       );
@@ -1156,7 +1158,12 @@ export class Game {
     }
 
     tower.abilityCooldown.reset(
-      tower.type === "engineer" ? 24 : 18
+      (
+        tower.type === "engineer"
+          ? 24
+          : 18
+      ) *
+      this.gameMode.abilityCooldownMultiplier
     );
     tower.abilityActive = 8;
     tower.abilityMultiplier = 2.2;
