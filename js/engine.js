@@ -2,6 +2,7 @@ import { GAME, TOWERS, ENEMIES, MAPS, ROUNDS, ACHIEVEMENTS, getTower, getEnemy, 
 import { loadSave, saveGame } from "./save.js";
 import { playSound } from "./audio.js";
 import { SeededRandom, normalizeSeed } from "./core/rng.js";
+import { Hero, HEROES } from "./heroes.js";
 
 const TAU = Math.PI * 2;
 
@@ -723,6 +724,7 @@ class Game {
     this.particles = new ParticleSystem();
     this.spatial = new SpatialIndex(100);
     this.towers = [];
+    this.heroes = [];
     this.enemies = new Map();
     this.projectiles = [];
     this.paths = [];
@@ -741,7 +743,9 @@ class Game {
     this.deleteMode = false;
     this.showRanges = false;
     this.selectedTower = null;
+    this.selectedHero = null;
     this.selectedBuildId = null;
+    this.selectedHeroBuildId = null;
     this.running = false;
     this.ended = false;
     this.lastTime = performance.now();
@@ -859,11 +863,14 @@ class Game {
     this.running = true;
     this.ended = false;
     this.towers = [];
+    this.heroes = [];
     this.enemies.clear();
     this.projectiles = [];
     this.spawnQueue = [];
     this.selectedTower = null;
+    this.selectedHero = null;
     this.selectedBuildId = null;
+    this.selectedHeroBuildId = null;
     this.buildMode = false;
     this.multiPlace = false;
     this.deleteMode = false;
@@ -926,8 +933,10 @@ class Game {
         pathLevels: tower.pathLevels,
         totalSpent: tower.totalSpent,
         targetMode: tower.targetMode,
+        abilityCooldown: tower.abilityCooldown,
         apex: tower.apex
-      }))
+      })),
+      heroes: this.heroes.map((hero) => hero.serialize())
     };
   }
 
@@ -1052,6 +1061,10 @@ class Game {
     for (const tower of this.towers) {
       if (!tower.active) continue;
       tower.update(dt);
+    }
+
+    for (const hero of this.heroes) {
+      hero.update(dt);
     }
 
     for (const projectile of this.projectiles) {
@@ -1303,17 +1316,63 @@ class Game {
   }
 
   selectTower(tower) {
+    if (this.selectedHero) this.selectedHero.selected = false;
     if (this.selectedTower) this.selectedTower.selected = false;
     this.selectedTower = tower;
+    this.selectedHero = null;
     if (tower) tower.selected = true;
     this.emit("selection", tower);
+    this.emit("heroSelection", null);
+  }
+
+  selectHero(hero) {
+    if (this.selectedTower) this.selectedTower.selected = false;
+    if (this.selectedHero) this.selectedHero.selected = false;
+    this.selectedTower = null;
+    this.selectedHero = hero;
+    if (hero) hero.selected = true;
+    this.emit("selection", null);
+    this.emit("heroSelection", hero);
   }
 
   selectBuild(towerId) {
+    this.selectedHeroBuildId = null;
     this.selectedBuildId = towerId;
+    this.selectedHeroBuildId = null;
     this.deleteMode = false;
     this.selectTower(null);
     this.emit("buildSelection", towerId);
+  }
+
+  selectHeroBuild(heroId) {
+    if (!HEROES.some((hero) => hero.id === heroId)) return;
+    this.selectedHeroBuildId = heroId;
+    this.selectedBuildId = null;
+    this.deleteMode = false;
+    this.selectTower(null);
+    this.selectHero(null);
+    this.emit("heroBuildSelection", heroId);
+  }
+
+  findHeroTarget(hero) {
+    const candidates = [];
+    for (const enemy of this.enemies.values()) {
+      if (!enemy.canBeTargetedBy(hero)) continue;
+      if (!enemy.visible) continue;
+      if (distance(hero, enemy) > hero.stats.range + enemy.radius) continue;
+      candidates.push(enemy);
+    }
+    if (!candidates.length) return null;
+    const compare = {
+      first: (a,b) => b.progress - a.progress,
+      last: (a,b) => a.progress - b.progress,
+      strongest: (a,b) => b.hp - a.hp,
+      weakest: (a,b) => a.hp - b.hp,
+      close: (a,b) => distance(hero,a) - distance(hero,b),
+      far: (a,b) => distance(hero,b) - distance(hero,a)
+    }[hero.targetMode] ?? ((a,b) => b.progress - a.progress);
+    candidates.sort(compare);
+    return candidates[0];
   }
 
   toggleBuildMode() {
@@ -1322,6 +1381,7 @@ class Game {
       this.multiPlace = false;
       this.deleteMode = false;
       this.selectedBuildId = null;
+      this.selectedHeroBuildId = null;
     }
     this.emit("mode", this);
   }
@@ -1454,6 +1514,41 @@ class Game {
   }
 
   drawTowers(ctx) {
+    for (const hero of this.heroes) {
+      if (this.showRanges && hero.selected) {
+        ctx.beginPath();
+        ctx.arc(hero.x, hero.y, hero.stats.range, 0, TAU);
+        ctx.fillStyle = "rgba(255,215,115,0.05)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,215,115,0.22)";
+        ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.translate(hero.x, hero.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, hero.spec.footprint + 5, 0, TAU);
+      ctx.strokeStyle = hero.selected ? "#ffffff" : hero.spec.color;
+      ctx.lineWidth = hero.selected ? 3 : 2;
+      ctx.stroke();
+      ctx.fillStyle = "#202b3d";
+      ctx.beginPath();
+      ctx.arc(0, 0, hero.spec.footprint, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = hero.spec.color;
+      ctx.stroke();
+      ctx.fillStyle = hero.spec.color;
+      ctx.font = "bold 9px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(hero.spec.name.split(" ").map((word) => word[0]).join("").slice(0, 3), 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.globalAlpha = 0.85;
+      ctx.font = "bold 8px system-ui";
+      ctx.fillText("L" + hero.level, 0, hero.spec.footprint + 10);
+      ctx.restore();
+    }
+
     for (const tower of this.towers) {
       if (this.showRanges && (tower.selected || this.towers.length < 12)) {
         ctx.beginPath();
