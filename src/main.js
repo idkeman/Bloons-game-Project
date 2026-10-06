@@ -34,6 +34,7 @@ ui.bind({
     game.start(mapId, {
       sandbox: Boolean(options?.sandbox),
       freeplay: Boolean(options?.freeplay),
+      mode: options?.mode || "standard",
       difficulty: options?.difficulty || "normal"
     });
     ui.showGame();
