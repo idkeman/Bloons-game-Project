@@ -11,6 +11,7 @@ import { BossController } from "./bosses.js";
 import { TrapSystem } from "./traps.js";
 import { validateGameState } from "./diagnostics.js";
 import { canCreateParagon, calculateDegree, getParagonData } from "./paragons.js";
+import { getGameMode } from "./game_modes.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -66,7 +67,8 @@ export class Game {
     this.lives = 0;
     this.round = 0;
     this.speed = 1;
-    this.autoRounds = false;
+    this.autoRounds =
+      Boolean(this.gameMode.autoRounds);
     this.pausedBeforeMenu = false;
 
     this.towers = [];
@@ -194,7 +196,8 @@ export class Game {
     for (const bloon of this.bloons) {
       bloon.update(
         delta,
-        this.difficulty.speed
+        this.difficulty.speed *
+        this.gameMode.bloonSpeed
       );
     }
 
@@ -459,7 +462,9 @@ export class Game {
       path: this.path,
       progress: 0,
       healthMultiplier:
-        this.difficulty.health * roundScale,
+        this.difficulty.health *
+        this.gameMode.bloonHealth *
+        roundScale,
       fortified: options.fortified,
       camo: options.camo,
       regrow: options.regrow
@@ -481,6 +486,8 @@ export class Game {
     this.map = deepClone(map);
     this.sandbox = Boolean(options.sandbox);
     this.freeplay = Boolean(options.freeplay);
+    this.gameModeId = options.mode || "standard";
+    this.gameMode = getGameMode(this.gameModeId);
 
     this.difficultyId = options.difficulty || "normal";
     this.difficulty =
@@ -490,7 +497,10 @@ export class Game {
     this.resize();
 
     this.path = new RoutePath(
-      this.map.path.map(([x, y]) => [
+      (this.gameModeId === "reverse"
+        ? [...this.map.path].reverse()
+        : this.map.path
+      ).map(([x, y]) => [
         x * this.width,
         y * this.height
       ]),
@@ -501,14 +511,16 @@ export class Game {
       ? 999999
       : Math.round(
           this.map.startCash *
-          this.difficulty.cash
+          this.difficulty.cash *
+          this.gameMode.cashMultiplier
         );
 
     this.lives = this.sandbox
       ? 999999
       : Math.round(
           this.map.lives *
-          this.difficulty.lives
+          this.difficulty.lives *
+          this.gameMode.startingLives
         );
 
     this.round = 0;
@@ -526,7 +538,7 @@ export class Game {
     this.multiPlace = false;
 
     this.rounds = new RoundController(this);
-    this.rounds.auto = false;
+    this.rounds.auto = this.autoRounds;
     this.bosses.reset();
 
     this.progression = new ProgressionSystem(this.save);
@@ -1610,6 +1622,7 @@ export class Game {
     this.start(snapshot.mapId, {
       sandbox: Boolean(snapshot.sandbox),
       freeplay: Boolean(snapshot.freeplay),
+      mode: snapshot.gameModeId || "standard",
       difficulty: snapshot.difficultyId || "normal"
     });
 
@@ -1739,6 +1752,7 @@ export class Game {
       state: this.state,
       mapId: this.map?.id || null,
       difficultyId: this.difficultyId,
+      gameModeId: this.gameModeId,
       sandbox: this.sandbox,
       freeplay: this.freeplay,
       cash: this.cash,
