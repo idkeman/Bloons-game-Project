@@ -1,5 +1,6 @@
 import { BLOONS } from "./data.js";
-import { clamp } from "./math.js";
+import { clamp, deepClone } from "./math.js";
+import { getCampaignRound } from "./campaign_rounds.js";
 
 const ORDER = [
   "red",
@@ -34,6 +35,12 @@ export function freeplayScale(round) {
 }
 
 export function createRound(round, seed = 1) {
+  const campaign = getCampaignRound(round);
+
+  if (campaign) {
+    return deepClone(campaign);
+  }
+
   const packages = [];
   const scale = freeplayScale(round);
 
@@ -185,7 +192,9 @@ export class RoundController {
         this.spawnTimer -= spacing;
 
         this.game.spawnBloon(next.type, {
-          fortified: next.fortified
+          fortified: next.fortified,
+          camo: next.camo,
+          regrow: next.regrow
         });
 
         next.count -= 1;
