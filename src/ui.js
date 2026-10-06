@@ -271,8 +271,10 @@ export class UIController {
     }
 
     this.nodes.selectionLevel.textContent =
-      "Tier " + selection.tier +
-      "  •  Target: " + selection.targetMode;
+      selection.ascended
+        ? "Paragon degree " + selection.ascensionDegree
+        : "Tier " + selection.tier +
+          "  •  Target: " + selection.targetMode;
     this.nodes.targetButton.textContent =
       "TARGET: " + selection.targetMode.toUpperCase();
 
@@ -354,6 +356,23 @@ export class UIController {
     this.nodes.abilityButton.classList.remove("hidden");
     this.nodes.abilityButton.dataset.entityId = selection.id;
     this.nodes.abilityButton.textContent = "ABILITY";
+
+    if (selection.paragon) {
+      const paragonCard =
+        document.createElement("div");
+
+      paragonCard.className = "paragon-card";
+      paragonCard.innerHTML =
+        "<strong>" + selection.paragon.name + "</strong>" +
+        "<span>Degree " + selection.ascensionDegree + "</span>" +
+        "<small>" +
+        selection.paragon.features.join(" • ") +
+        "</small>";
+
+      this.nodes.upgradePaths.prepend(
+        paragonCard
+      );
+    }
 
     if (selection.canAscend) {
       this.nodes.paragonButton.classList.remove("hidden");
