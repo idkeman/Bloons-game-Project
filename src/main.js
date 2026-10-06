@@ -44,6 +44,7 @@ ui.bind({
   menu: () => { save.persist(game.snapshot()); game.stop(); ui.showMenu(); },
   selectTower: id => game.selectBuildTower(id),
   selectEntity: id => game.selectEntity(id),
+  cycleTarget: () => game.cycleSelectedTarget(),
   closeSelection: () => game.clearSelection(),
   buyUpgrade: (entityId, path, tier) => game.buyUpgrade(entityId, path, tier),
   activateAbility: entityId => game.activateAbility(entityId),
@@ -71,6 +72,8 @@ window.addEventListener("beforeunload", () => {
 });
 window.addEventListener("keydown", event => game.handleKey(event));
 window.addEventListener("resize", () => game.resize());
+
+window.monkeyFrontier = { game, ui, save };
 
 ui.showMenu();
 ui.renderMapList(MAPS);
