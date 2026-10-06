@@ -454,6 +454,29 @@ assert.ok(
 );
 
 await page.locator("#progress-back-btn").click();
+
+await page.locator("#knowledge-btn").click();
+
+assert.ok(
+  await page.locator(".knowledge-node").count() >= 30,
+  "research tree should render all knowledge nodes"
+);
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  game.progression.awardKnowledgeCredits(500);
+});
+
+await page.locator(".knowledge-node button").filter({
+  hasText: "RESEARCH"
+}).first().click();
+
+assert.ok(
+  await page.locator(".knowledge-node.purchased").count() >= 1,
+  "research purchase should mark a knowledge node owned"
+);
+
+await page.locator("#knowledge-back-btn").click();
 await page.locator("#glossary-btn").click();
 
 assert.ok(
