@@ -16,7 +16,7 @@ const ORDER = [
 ];
 
 export function freeplayScale(round) {
-  if (round <= 80) {
+  if (round <= 100) {
     return {
       health: 1,
       speed: 1,
@@ -24,7 +24,7 @@ export function freeplayScale(round) {
     };
   }
 
-  const extra = round - 80;
+  const extra = round - 100;
   const curve = 1 + Math.pow(extra / 20, 1.22);
 
   return {
