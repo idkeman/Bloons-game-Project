@@ -6,6 +6,8 @@ import { HeroUnit } from "./hero.js";
 import { RoundController } from "./rounds.js";
 import { CombatSystem } from "./combat.js";
 import { ProgressionSystem } from "./progression.js";
+import { canPlaceAt } from "./placement.js";
+import { BossController } from "./bosses.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -78,6 +80,7 @@ export class Game {
 
     this.rounds = new RoundController(this);
     this.combat = new CombatSystem(this);
+    this.bosses = new BossController(this);
 
     this.stats = {
       games: 0,
@@ -217,6 +220,7 @@ export class Game {
     }
 
     this.combat.update(delta);
+    this.bosses.update();
 
     for (const tower of this.towers) {
       this.applyTowerIncome(tower, delta);
@@ -497,6 +501,7 @@ export class Game {
 
     this.rounds = new RoundController(this);
     this.rounds.auto = false;
+    this.bosses.reset();
 
     this.progression = new ProgressionSystem(this.save);
 
@@ -720,53 +725,38 @@ export class Game {
   canPlace(x, y, towerId) {
     const config = TOWERS[towerId];
 
-    if (!config) {
+    if (!config || !this.map || !this.path) {
       return false;
     }
 
-    if (!this.map) {
-      return false;
-    }
+    const placementMap = this.sandbox
+      ? {
+          ...this.map,
+          buildZones: [
+            { x: 0, y: 0, w: 1, h: 1 }
+          ]
+        }
+      : this.map;
 
-    if (
-      this.path.isPointNearPath(
-        x,
-        y,
-        Math.max(8, this.width * 0.008)
+    const occupiedUnits = [
+      ...this.towers,
+      ...this.heroes
+    ];
+
+    return canPlaceAt({
+      x,
+      y,
+      map: placementMap,
+      width: this.width,
+      height: this.height,
+      path: this.path,
+      towerConfig: config,
+      occupiedUnits,
+      minimumGap: Math.max(
+        20,
+        this.width * 0.024
       )
-    ) {
-      return false;
-    }
-
-    const insideZone = this.map.buildZones.some(
-      (zone) =>
-        x >= zone.x * this.width &&
-        x <= (zone.x + zone.w) * this.width &&
-        y >= zone.y * this.height &&
-        y <= (zone.y + zone.h) * this.height
-    );
-
-    if (!insideZone && !this.sandbox) {
-      return false;
-    }
-
-    const overlapsTower = this.towers.some(
-      (tower) =>
-        distance(x, y, tower.x, tower.y) <
-        Math.max(20, this.width * 0.024)
-    );
-
-    const overlapsHero = this.heroes.some(
-      (hero) =>
-        distance(x, y, hero.x, hero.y) <
-        Math.max(20, this.width * 0.024)
-    );
-
-    if (overlapsTower || overlapsHero) {
-      return false;
-    }
-
-    return true;
+    }).ok;
   }
 
   placePendingTower(x, y) {
