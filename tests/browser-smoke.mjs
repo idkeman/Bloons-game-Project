@@ -511,7 +511,7 @@ assert.equal(
   await page.evaluate(
     () => window.monkeyFrontier.game.towers.length
   ),
-  1,
+  0,
   "selling should remove exactly one tower"
 );
 
