@@ -88,13 +88,51 @@ export function getParagonData(towerId) {
   return PARAGONS[towerId] || null;
 }
 
-export function canCreateParagon(towers, towerId) {
-  const candidates = towers.filter(
-    (tower) =>
-      tower.type === towerId &&
-      !tower.ascended &&
-      tower.pathLevels.includes(5)
-  );
+export function getParagonSacrifices(towers, towerId) {
+  const candidates = towers
+    .filter(
+      (tower) =>
+        tower.type === towerId &&
+        !tower.ascended
+    )
+    .sort(
+      (a, b) => b.totalSpent - a.totalSpent
+    );
 
-  return candidates.length >= 3;
+  const chosen = [];
+  const coveredPaths = new Set();
+
+  for (const tower of candidates) {
+    const tierFivePaths = tower.pathLevels
+      .map((tier, path) =>
+        tier === 5 ? path : -1
+      )
+      .filter((path) => path >= 0);
+
+    const usefulPath = tierFivePaths.find(
+      (path) => !coveredPaths.has(path)
+    );
+
+    if (usefulPath === undefined) {
+      continue;
+    }
+
+    chosen.push(tower);
+    coveredPaths.add(usefulPath);
+
+    if (coveredPaths.size === 3) {
+      break;
+    }
+  }
+
+  return coveredPaths.size === 3
+    ? chosen
+    : [];
+}
+
+export function canCreateParagon(towers, towerId) {
+  return getParagonSacrifices(
+    towers,
+    towerId
+  ).length === 3;
 }
