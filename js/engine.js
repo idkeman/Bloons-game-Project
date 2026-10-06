@@ -284,6 +284,9 @@ class Projectile {
 
   impact(game, target) {
     const result = target.takeDamage(this.stats.damage, this.stats);
+    this.source.totalDamage += result.damage;
+    game.statsThisRun.damageDealt += result.damage;
+    if (result.killed) this.source.killCount += 1;
     if (result.damage > 0) game.particles.burst(target.x, target.y, this.color, 3 + Math.min(8, this.stats.pierce ?? 0), 55);
 
     if (this.stats.slowFactor) {
@@ -316,9 +319,12 @@ class Projectile {
       for (const nearby of game.spatial.queryCircle(target.x, target.y, this.stats.aoeRadius ?? 22 + remainingPierce * 2)) {
         if (nearby === target || nearby.dead || nearby.leaked) continue;
         if (!nearby.canBeTargetedBy(this.source)) continue;
-        const splash = target.takeDamage(this.stats.splashDamage ?? this.stats.damage * 0.35, this.stats);
+        const splash = nearby.takeDamage(this.stats.splashDamage ?? this.stats.damage * 0.35, this.stats);
+        this.source.totalDamage += splash.damage;
+        game.statsThisRun.damageDealt += splash.damage;
+        if (splash.killed) this.source.killCount += 1;
         remainingPierce -= 1;
-        if (remainingPierce <= 0 || splash.killed) break;
+        if (remainingPierce <= 0) break;
       }
     }
   }
@@ -447,6 +453,7 @@ class Tower {
 
   createApex() {
     if (!this.canCreateApex()) return { ok:false, reason:"Requires five upgrades on every branch" };
+    if (this.game.cash < 25000) return { ok:false, reason:"Insufficient credits for Apex creation" };
     this.game.cash -= 25000;
     this.apex = true;
     this.level = 20;
@@ -545,6 +552,7 @@ class Game {
     this.fpsTimer = 0;
     this.totalTime = 0;
     this.waveTimer = 0;
+    this.incomeTimer = 0;
     this.spawnQueue = [];
     this.waveClearTimer = 0;
     this.eventListeners = new Map();
@@ -654,6 +662,16 @@ class Game {
     this.projectiles = [];
     this.spawnQueue = [];
     this.selectedTower = null;
+    this.selectedBuildId = null;
+    this.buildMode = false;
+    this.multiPlace = false;
+    this.deleteMode = false;
+    this.totalTime = 0;
+    this.incomeTimer = 0;
+    this.statsThisRun = {
+      kills: 0, bosses: 0, leaks: 0, creditsEarned: 0,
+      damageDealt: 0, towersPlaced: 0, towersSold: 0, wavesWon: 0
+    };
     this.rebuildPaths();
     this.save.statistics.runs += 1;
     this.emit("newRun", this);
@@ -784,6 +802,22 @@ class Game {
   update(dt) {
     this.totalTime += dt;
     this.waveTimer += dt;
+    this.incomeTimer += dt;
+
+    if (this.incomeTimer >= 1) {
+      const payoutIntervals = Math.floor(this.incomeTimer);
+      this.incomeTimer -= payoutIntervals;
+      let income = 0;
+      for (const tower of this.towers) {
+        income += (tower.stats.incomeRate ?? 0) * tower.totalSpent * payoutIntervals;
+      }
+      if (income > 0) {
+        const payout = Math.floor(income);
+        this.cash += payout;
+        this.statsThisRun.creditsEarned += payout;
+        this.save.statistics.creditsEarned += payout;
+      }
+    }
 
     let spawnBudget = 0;
     if (this.spawnQueue.length > 0) {
