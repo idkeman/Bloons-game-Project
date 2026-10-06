@@ -458,6 +458,37 @@ assert.equal(
   true
 );
 
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  const type = Object.keys(
+    game.content.towers
+  )[0];
+
+  game.pendingTower = type;
+  game.buildMode = true;
+
+  const zone = game.map.buildZones[0];
+  const x =
+    (zone.x + zone.w / 2) *
+    game.width;
+  const y =
+    (zone.y + zone.h / 2) *
+    game.height;
+
+  game.placePendingTower(
+    x,
+    y
+  );
+});
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.towers.length
+  ),
+  1,
+  "restart should allow a fresh tower placement"
+);
+
 await page.locator("#save-btn").click();
 
 assert.ok(
