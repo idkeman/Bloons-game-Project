@@ -1,3 +1,5 @@
+import { UPGRADE_CONTENT } from './upgrade-content.js';
+
 export const DIFFICULTIES={
   easy:{id:'easy',name:'Easy',cashMult:1,lifeMult:1.5,bloonSpeed:.88,bloonHp:.86,rewardMult:1},
   normal:{id:'normal',name:'Normal',cashMult:1,lifeMult:1,bloonSpeed:1,bloonHp:1,rewardMult:1},
@@ -64,5 +66,29 @@ for(const [id,name,category,cost,color,range,attackRate,damage,pierce,isSupport]
 export const BLOONS={
   red:{id:'red',name:'Red',hp:1,speed:62,rbe:1,damage:1,color:'#ff5264',radius:10,children:[]},blue:{id:'blue',name:'Blue',hp:1,speed:74,rbe:2,damage:1,color:'#4d90ff',radius:10,children:['red']},green:{id:'green',name:'Green',hp:1,speed:86,rbe:3,damage:1,color:'#62e06e',radius:11,children:['blue']},yellow:{id:'yellow',name:'Yellow',hp:1,speed:100,rbe:4,damage:1,color:'#f5d953',radius:11,children:['green']},pink:{id:'pink',name:'Pink',hp:1,speed:118,rbe:5,damage:1,color:'#ff72be',radius:11,children:['yellow']},black:{id:'black',name:'Black',hp:1,speed:76,rbe:11,damage:1,color:'#30353b',radius:12,immune:'explosion',children:['pink','pink']},white:{id:'white',name:'White',hp:1,speed:84,rbe:12,damage:1,color:'#f1f1f1',radius:12,immune:'freeze',children:['pink','pink']},purple:{id:'purple',name:'Purple',hp:1,speed:122,rbe:13,damage:1,color:'#984bff',radius:12,immune:'energy',children:['pink','pink']},lead:{id:'lead',name:'Lead',hp:2,speed:45,rbe:23,damage:1,color:'#7f8892',radius:14,armored:true,immune:'sharp',children:['black','black']},zebra:{id:'zebra',name:'Zebra',hp:1,speed:92,rbe:24,damage:1,color:'#e0e3e5',radius:13,children:['black','white']},rainbow:{id:'rainbow',name:'Rainbow',hp:2,speed:104,rbe:50,damage:1,color:'#ff8cfd',radius:15,children:['zebra','zebra']},ceramic:{id:'ceramic',name:'Ceramic',hp:10,speed:54,rbe:91,damage:1,color:'#d79b63',radius:17,armored:true,children:['rainbow','rainbow']},moab:{id:'moab',name:'Doom Blimp',hp:200,speed:28,rbe:390,damage:20,color:'#6e78a8',radius:27,boss:true,children:['ceramic','ceramic','ceramic','ceramic']},bfb:{id:'bfb',name:'Brute Blimp',hp:850,speed:22,rbe:1600,damage:25,color:'#9a4a67',radius:33,boss:true,children:['moab','moab','moab','moab']},zomg:{id:'zomg',name:'Obsidian Blimp',hp:4200,speed:15,rbe:5000,damage:75,color:'#373c4e',radius:42,boss:true,children:['bfb','bfb','bfb','bfb']},ddt:{id:'ddt',name:'Shadow Blimp',hp:600,speed:66,rbe:700,damage:2,color:'#252c32',radius:22,boss:true,stealth:true,armored:true,children:['ceramic','ceramic','ceramic']},bad:{id:'bad',name:'Titan Blimp',hp:22000,speed:10,rbe:20000,damage:120,color:'#2b252d',radius:54,boss:true,children:['zomg','zomg','bfb','bfb']},bloonBoss:{id:'bloonBoss',name:'Ruin Warden',hp:120000,speed:7,rbe:75000,damage:250,color:'#e2ad56',radius:65,boss:true,bossTier:1,children:['bad','bad']}
 };
-export const PARAGONS=Object.fromEntries(Object.keys(TOWERS).map((id,i)=>[id,{name:`${TOWERS[id].name} Ascendant`,cost:80000+i*3500,color:TOWERS[id].color,description:`Paragon form of the ${TOWERS[id].name}.`} ]));
+for (const [towerId, content] of Object.entries(UPGRADE_CONTENT)) {
+  const tower = TOWERS[towerId];
+  if (!tower) continue;
+
+  for (let path = 0; path < 3; path += 1) {
+    const entries = content[path] || [];
+
+    for (let tier = 0; tier < Math.min(5, entries.length); tier += 1) {
+      tower.paths[path][tier].name = entries[tier][0];
+      tower.paths[path][tier].desc = entries[tier][1];
+    }
+  }
+}
+
+export const PARAGONS=Object.fromEntries(
+  Object.keys(TOWERS).map((id,i)=>[
+    id,
+    {
+      name: TOWERS[id].name + ' Ascendant',
+      cost: 80000 + i * 3500,
+      color: TOWERS[id].color,
+      description: 'Paragon form of ' + TOWERS[id].name + '.'
+    }
+  ])
+);
 export const ROUND_SPECIALS=Object.fromEntries([[10,'Accelerated Rush'],[20,'Lead Introduction'],[25,'Ceramic Surge'],[30,'First Doom Blimp'],[40,'Brute Blimp Break'],[50,'Obsidian Assault'],[60,'Double Doom'],[70,'Shadow Blitz'],[80,'Titan Preview'],[90,'Elite Blimp Gauntlet'],[100,'Ruin Warden']]);
