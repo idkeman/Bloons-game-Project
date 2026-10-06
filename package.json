@@ -1,0 +1,13 @@
+{
+  "name": "skyfront-dominion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:smoke": "node tests/node-smoke.mjs",
+    "test:browser": "node tests/browser-smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "latest"
+  }
+}
