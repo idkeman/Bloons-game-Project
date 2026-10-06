@@ -13,6 +13,10 @@ const refs = {
   continue: $("#continueGameButton"),
   challenge: $("#challengeButton"),
   menuNotice: $("#menuNotice"),
+  mapSelect: $("#mapSelect"),
+  difficultySelect: $("#difficultySelect"),
+  challengeSelect: $("#challengeSelect"),
+  seedInput: $("#seedInput"),
   cash: $("#cashValue"),
   lives: $("#livesValue"),
   wave: $("#waveValue"),
@@ -188,11 +192,29 @@ function showMenu(message = "") {
   refs.menuNotice.textContent = message;
 }
 
+function initializeCampaignSelectors() {
+  refs.mapSelect.innerHTML = MAPS.map((map) =>
+    '<option value="' + map.id + '">' + map.name + " — " + map.description + "</option>"
+  ).join("");
+  refs.difficultySelect.innerHTML = DIFFICULTIES.map((mode) =>
+    '<option value="' + mode.id + '">' + mode.name + " — " + Math.round(mode.hpMul * 100) + "% HP</option>"
+  ).join("");
+  refs.challengeSelect.innerHTML = CHALLENGES.map((challenge) =>
+    '<option value="' + challenge.id + '">' + challenge.name + "</option>"
+  ).join("");
+}
+
+function selectedSeed() {
+  const raw = Number.parseInt(refs.seedInput.value, 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : Date.now();
+}
+
 function newRun() {
   game.begin({
-    mapId: "greenway",
-    difficultyId: "standard",
-    challengeId: "scout"
+    mapId: refs.mapSelect.value,
+    difficultyId: refs.difficultySelect.value,
+    challengeId: refs.challengeSelect.value,
+    seed: selectedSeed()
   });
   showGame();
 }
@@ -208,14 +230,7 @@ function continueRun() {
 }
 
 function setupChallenge() {
-  const mapChoices = MAPS.map((map) => map.name).join(" • ");
-  const difficultyChoices = DIFFICULTIES.map((mode) => mode.name).join(" • ");
-  const challengeChoices = CHALLENGES.map((challenge) => challenge.name).join(" • ");
-  const mapId = window.prompt("Map: " + mapChoices + "\\nEnter id: greenway, crosscurrent, switchyard, nightgrid, spire", "greenway") || "greenway";
-  const difficultyId = window.prompt("Difficulty: " + difficultyChoices + "\\nEnter id: apprentice, standard, veteran, nightmare, cataclysm", "standard") || "standard";
-  const challengeId = window.prompt("Challenge: " + challengeChoices + "\\nEnter id: scout, rush, fortified, stealth-heavy, boss-heavy, endurance", "scout") || "scout";
-  game.begin({ mapId, difficultyId, challengeId });
-  showGame();
+  newRun();
 }
 
 refs.start.addEventListener("click", newRun);
@@ -335,6 +350,7 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
+initializeCampaignSelectors();
 renderPalette();
 renderAchievements();
-showMenu("Choose a campaign, restore a saved run, or open challenge setup.");
+showMenu("Choose a campaign, restore a saved run, or customize the campaign settings.");
