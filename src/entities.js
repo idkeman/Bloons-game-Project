@@ -450,7 +450,16 @@ export class Tower {
       totalDamage: this.totalDamage,
       totalCash: this.totalCash,
       ascended: this.ascended,
-      ascensionDegree: this.ascensionDegree
+      ascensionDegree: this.ascensionDegree,
+      paragonData: this.paragonData
+        ? deepClone(this.paragonData)
+        : null,
+      cooldownRemaining: this.cooldown.remaining,
+      abilityCooldownRemaining:
+        this.abilityCooldown.remaining,
+      abilityActive: this.abilityActive,
+      abilityMultiplier: this.abilityMultiplier,
+      incomeTimer: this._incomeTimer || 0
     };
   }
 }
