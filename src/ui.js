@@ -14,6 +14,7 @@ export class UIController {
       selectionPanel: document.querySelector("#selection-panel"),
       selectionName: document.querySelector("#selection-name"),
       selectionLevel: document.querySelector("#selection-level"),
+      targetButton: document.querySelector("#target-btn"),
       selectionStats: document.querySelector("#selection-stats"),
       upgradePaths: document.querySelector("#upgrade-paths"),
       abilityButton: document.querySelector("#ability-btn"),
@@ -58,6 +59,7 @@ export class UIController {
     document.querySelector("#save-btn").onclick = actions.save;
     document.querySelector("#menu-btn").onclick = actions.menu;
     document.querySelector("#close-selection-btn").onclick = actions.closeSelection;
+    this.nodes.targetButton.onclick = () => actions.cycleTarget();
 
     this.nodes.abilityButton.onclick = () => {
       const id = this.nodes.abilityButton.dataset.entityId;
@@ -268,6 +270,8 @@ export class UIController {
     this.nodes.selectionLevel.textContent =
       "Tier " + selection.tier +
       "  •  Target: " + selection.targetMode;
+    this.nodes.targetButton.textContent =
+      "TARGET: " + selection.targetMode.toUpperCase();
 
     this.nodes.selectionStats.innerHTML = this.statGrid([
       ["Damage", Number(selection.attack.damage || 0).toFixed(1)],
