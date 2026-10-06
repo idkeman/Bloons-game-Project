@@ -564,12 +564,15 @@ export class Game {
   }
 
   stop() {
-    this.progression.recordStats({
-      pops: this.stats.roundPops,
-      cash: this.stats.roundCash
-    });
-    this.progression.persist();
+    if (this.map) {
+      this.progression.recordRun(
+        this.map.id,
+        this.rounds.current,
+        false
+      );
+    }
 
+    this.progression.persist();
     this.state = GAME_STATES.MENU;
     this.towers = [];
     this.heroes = [];
@@ -1577,6 +1580,7 @@ export class Game {
     this.cash = snapshot.cash;
     this.lives = snapshot.lives;
     this.rounds.current = snapshot.round || 0;
+    this.stats = deepClone(snapshot.statistics || this.stats);
     this.autoRounds = Boolean(snapshot.autoRounds);
     this.rounds.auto = this.autoRounds;
     this.speed = snapshot.speed || 1;
