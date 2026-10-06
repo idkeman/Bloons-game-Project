@@ -92,7 +92,19 @@ ui.bind({
   toggleBuild: () => game.toggleBuildMode(),
   toggleMulti: () => game.toggleMultiPlace(),
   sell: () => game.sellSelected(),
-  upgradeMode: () => game.upgradeMode()
+  upgradeMode: () => game.upgradeMode(),
+  buyKnowledge: nodeId => {
+    if (
+      game.progression.buyKnowledge(nodeId)
+    ) {
+      ui.showKnowledge(
+        game.progression.listKnowledgeNodes(),
+        game.progression.state.knowledge.credits
+      );
+      ui.setProfile(save.profile());
+      ui.toast("Research completed.");
+    }
+  }
 });
 
 game.on("state", state => ui.setGameState(state));
