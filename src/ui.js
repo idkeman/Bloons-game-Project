@@ -481,6 +481,7 @@ export class UIController {
       this.toast("Game paused.");
     } else if (state === "won") {
       this.toast("Run complete.");
+      this.showGameEnd(false, "Defense complete");
     } else if (state === "lost") {
       this.toast("Run failed.");
       this.showGameEnd(true);
