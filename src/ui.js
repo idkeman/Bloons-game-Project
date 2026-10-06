@@ -42,6 +42,7 @@ export class UIController {
     this.buyUpgradeCallback = actions.buyUpgrade;
 
     document.querySelector("#play-btn").onclick = actions.play;
+    document.querySelector("#freeplay-btn").onclick = actions.freeplay;
     document.querySelector("#continue-btn").onclick = actions.continue;
     document.querySelector("#sandbox-btn").onclick = actions.sandbox;
     document.querySelector("#progress-btn").onclick = actions.progress;
