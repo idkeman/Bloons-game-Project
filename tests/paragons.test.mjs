@@ -43,10 +43,10 @@ test("Paragon degree increases with sacrifice and extra cash value", () => {
   assert.ok(high <= 100);
 });
 
-test("exactly three qualifying Tier 5 towers are required", () => {
+test("Paragon requires Tier 5 coverage across all three branches", () => {
   const config = TOWERS.sharpshooter;
 
-  const makeTower = (id) => {
+  const makeTower = (id, path) => {
     const tower = new Tower({
       id,
       type: "sharpshooter",
@@ -55,13 +55,17 @@ test("exactly three qualifying Tier 5 towers are required", () => {
       config
     });
 
-    tower.pathLevels = [5, 0, 0];
+    tower.pathLevels[path] = 5;
     return tower;
   };
 
   assert.equal(
     canCreateParagon(
-      [makeTower("a"), makeTower("b")],
+      [
+        makeTower("a", 0),
+        makeTower("b", 1),
+        makeTower("c", 0)
+      ],
       "sharpshooter"
     ),
     false
@@ -69,7 +73,11 @@ test("exactly three qualifying Tier 5 towers are required", () => {
 
   assert.equal(
     canCreateParagon(
-      [makeTower("a"), makeTower("b"), makeTower("c")],
+      [
+        makeTower("a", 0),
+        makeTower("b", 1),
+        makeTower("c", 2)
+      ],
       "sharpshooter"
     ),
     true
