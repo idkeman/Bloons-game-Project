@@ -1653,6 +1653,75 @@ export class Game {
       return tower;
     }).filter(Boolean);
 
+    this.heroes = (snapshot.heroes || []).map((saved) => {
+      const config = HEROES.find(
+        (hero) => hero.id === saved.heroId
+      );
+
+      if (!config) {
+        return null;
+      }
+
+      const hero = new HeroUnit({
+        id: saved.id,
+        heroId: saved.heroId,
+        x: saved.x,
+        y: saved.y,
+        config
+      });
+
+      hero.level = saved.level || 1;
+      hero.xp = saved.xp || 0;
+      hero.targetMode = saved.targetMode || "first";
+      return hero;
+    }).filter(Boolean);
+
+    this.bloons = (snapshot.bloons || []).map((saved) => {
+      try {
+        const bloon = new Bloon({
+          id: saved.id,
+          type: saved.type,
+          path: this.path,
+          progress: saved.progress,
+          healthMultiplier: saved.healthMultiplier,
+          fortified: saved.fortified,
+          camo: saved.camo,
+          regrow: saved.regrow
+        });
+
+        bloon.health = saved.health;
+        bloon.maxHealth = saved.maxHealth || bloon.maxHealth;
+        bloon.status = {
+          ...bloon.status,
+          ...(saved.status || {})
+        };
+        bloon.statusPower = {
+          ...bloon.statusPower,
+          ...(saved.statusPower || {})
+        };
+        return bloon;
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+
+    this.projectiles = (snapshot.projectiles || []).map(
+      (saved) => Projectile.fromSnapshot(saved)
+    );
+
+    this.traps = (snapshot.traps || []).map(
+      (saved) => ({
+        ...saved,
+        hitIds: new Set(),
+        alive: true
+      })
+    );
+
+    this.rounds.active = Boolean(snapshot.roundActive);
+    this.rounds.queue = [];
+    this.rounds.spawnTimer = 0;
+    this.rounds.clearTimer = 0;
+
     this.emit("selection", null);
     this.recalculateBuffs();
     this.emit("hud", this.hud());
@@ -1681,6 +1750,13 @@ export class Game {
       heroes: this.heroes.map(
         (hero) => hero.serialize()
       ),
+      bloons: this.bloons.map(
+        (bloon) => bloon.serialize()
+      ),
+      projectiles: this.projectiles.map(
+        (projectile) => projectile.serialize()
+      ),
+      traps: this.trapsystem.serialize(),
       statistics: deepClone(this.stats)
     };
   }
