@@ -2,15 +2,24 @@ let ctx = null;
 let master = null;
 let enabled = true;
 
+function supportsAudio() {
+  return typeof AudioContext !== "undefined" || typeof webkitAudioContext !== "undefined";
+}
+
+function audioConstructor() {
+  return typeof AudioContext !== "undefined" ? AudioContext : webkitAudioContext;
+}
+
 function ensureAudio() {
-  if (!enabled) return null;
+  if (!enabled || !supportsAudio()) return null;
   if (!ctx) {
-    ctx = new AudioContext();
+    const Ctx = audioConstructor();
+    ctx = new Ctx();
     master = ctx.createGain();
     master.gain.value = 0.07;
     master.connect(ctx.destination);
   }
-  if (ctx.state === "suspended") ctx.resume();
+  if (ctx.state === "suspended" && typeof ctx.resume === "function") ctx.resume();
   return ctx;
 }
 
