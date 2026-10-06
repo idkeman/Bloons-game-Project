@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { TOWERS, ENEMIES, MAPS, ROUNDS } from "../js/data.js";
 import { Game, Tower, Projectile } from "../js/engine.js";
+import { SeededRandom } from "../js/core/rng.js";
 
 const storageMap = new Map();
 globalThis.localStorage = {
@@ -58,15 +59,21 @@ assert.ok(ENEMIES.length >= 15);
 assert.equal(MAPS.length, 5);
 assert.equal(ROUNDS.length, 150);
 
+const rngA = new SeededRandom(123456);
+const rngB = new SeededRandom(123456);
+for (let i = 0; i < 50; i++) assert.equal(rngA.next(), rngB.next(), "Seeded RNG diverged.");
+
+
 for (const tower of TOWERS) {
   assert.equal(tower.paths.length, 3, tower.id);
   for (const path of tower.paths) assert.equal(path.length, 5, tower.id);
 }
 
 const game = new Game(new FakeCanvas());
-game.begin({ mapId: "greenway", difficultyId: "standard", challengeId: "scout" });
+game.begin({ mapId: "greenway", difficultyId: "standard", challengeId: "scout", seed: 123456 });
 
 assert.equal(game.wave, 0);
+assert.equal(game.seed, 123456);
 assert.equal(game.cash, 650);
 assert.equal(game.lives, 100);
 
@@ -149,6 +156,10 @@ game.wave = 0;
 game.begin({ mapId: "greenway", difficultyId: "standard", challengeId: "scout" });
 assert.equal(game.towers.length, 0, "New run retained towers.");
 assert.equal(game.statsThisRun.kills, 0, "New run retained kill statistics.");
+
+const serialized = game.serialize();
+assert.equal(serialized.seed, game.seed);
+assert.ok(serialized.rngState && Number.isInteger(serialized.rngState.state), "RNG state was not serialized.");
 
 console.log("PASS: data registry");
 console.log("PASS: game construction");
