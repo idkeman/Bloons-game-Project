@@ -1177,7 +1177,13 @@ export class GameEngine {
       for(let p=0;p<3;p++)for(let i=0;i<(s.levels?.[p]||0);i++){
         const up=TOWERS[s.id].paths[p][i];if(!up)continue;t.levels[p]++;t.totalInvested+=up.cost;t.applyUpgradeEffects(up.effects);
       }
-      t.targetMode=s.targetMode||'first';if(s.paragon){t.paragon=true;t.paragonDegree=s.paragonDegree||1;}t.recalculate();this.towers.push(t);
+      t.targetMode=s.targetMode||'first';
+      if(s.paragon){
+        t.paragon=true;
+        t.paragonDegree=s.paragonDegree||1;
+      }
+      t.recalculate();
+      this.towers.push(t);
     }
     if(data.heroPlaced&&data.hero&&HEROES[this.heroId]&&this.canPlace(data.hero.x,data.hero.y,{range:HEROES[this.heroId].base.range})){
       const h=new HeroUnit(this,this.heroId,data.hero.x,data.hero.y);h.level=data.hero.level||1;h.xp=data.hero.xp||0;h.recalculate();this.hero=h;this.heroPlaced=true;
@@ -1186,12 +1192,29 @@ export class GameEngine {
     this.state=GameState.PLAYING;this.roundRunning=false;this.save();return true;
   }
   clearSave(){localStorage.removeItem('balloon-bastion-save');}
-  spawnBurst(x,y,color,count=12){for(let i=0;i<count;i++)this.particles.push(new Particle(x,y,{color,life:random(.25,.9),size:random(2,7),vx:random(-160,160),vy:random(-160,160),gravity:60,drag:1.8}));}
+  spawnBurst(x,y,color,count=12){
+    for(let i=0;i<count;i++){
+      this.particles.push(new Particle(x,y,{
+        color,
+        life:random(.25,.9),
+        size:random(2,7),
+        vx:random(-160,160),
+        vy:random(-160,160),
+        gravity:60,
+        drag:1.8
+      }));
+    }
+  }
   spawnText(x,y,text,color,size){this.texts.push(new FloatingText(x,y,text,color,size));}
   spawnRing(x,y,radius,color){this.effects.push({type:'ring',x,y,radius,color,life:.45,maxLife:.45});}
   spawnLine(x1,y1,x2,y2,color){this.effects.push({type:'line',x1,y1,x2,y2,color,life:.14,maxLife:.14});}
   spawnDrones(x,y,count=5,damage=20){
-    for(let i=0;i<count;i++){const d=new Drone(this,x,y,damage);d.owner=this.hero;this.projectiles.push(d);}
+    for(let i=0;i<count;i++){
+      const d=new Drone(this,x,y,damage);
+      d.owner=this.hero;
+      d.angle=(i/count)*TAU;
+      this.projectiles.push(d);
+    }
   }
   resolveDrones(){for(const p of this.projectiles){if(p.drone&&!p.owner)p.owner=this.hero;}}
   meteor(x,y,radius,damage){this.spawnRing(x,y,radius,'#ffb16b');this.particles.push(new Particle(x,y,{color:'#fff0a1',life:.6,size:45,vx:0,vy:0}));this.areaDamage(x,y,radius,damage,this.hero);}
