@@ -28,9 +28,17 @@ ui.bind({
   },
   sandbox: () => ui.showMapScreen({ sandbox: true }),
   progress: () => ui.showProgress(save.profile()),
+  knowledge: () => {
+    const progression = game.progression;
+    ui.showKnowledge(
+      progression.listKnowledgeNodes(),
+      progression.state.knowledge.credits
+    );
+  },
   glossary: () => ui.showManual(GLOSSARY),
   mapBack: () => ui.showMenu(),
   progressBack: () => ui.showMenu(),
+  knowledgeBack: () => ui.showMenu(),
   manualBack: () => ui.showMenu(),
   startMap: (mapId, options) => {
     game.start(mapId, {
