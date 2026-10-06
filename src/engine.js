@@ -1,4 +1,5 @@
 import { TOWERS, BLOONS, HEROES, PARAGONS, DIFFICULTIES, MODES, MAPS, ROUND_SPECIALS } from './data.js';
+import { ROUND_CATALOG } from './round-catalog.js';
 import { fireTowerBehavior, applyTowerBehaviorUpgrades } from './tower-behaviors.js';
 import { MasteryProfile } from './mastery.js';
 import { AchievementProfile } from './achievements.js';
@@ -897,35 +898,74 @@ export class GameEngine {
     } else this.roundTimer=Math.max(0,this.roundTimer-dt);
   }
   buildRoundPlan(round){
-    const plan=[];const add=(type,count,interval,scale=1)=>plan.push({type,count,interval,scale});
+    const catalog=ROUND_CATALOG[round];
+    const plan=[];
+
+    if(catalog){
+      const scale=this.difficulty.bloonHp*this.freeplayScale(catalog.difficulty);
+      const countMultiplier=this.modeRules?.spawnMultiplier||1;
+
+      for(const group of catalog.groups){
+        plan.push({
+          type:group.type,
+          count:Math.max(1,Math.round(group.count*countMultiplier)),
+          interval:Math.max(.025,group.interval/Math.max(.5,this.speedMultiplier)),
+          scale:scale*group.scale
+        });
+      }
+
+      if(this.modeRules?.alternateBloons&&round>=5){
+        plan.push({type:'lead',count:Math.max(2,Math.floor(round*.18)),interval:.11,scale:scale*1.2});
+        if(round>=14)plan.push({type:'purple',count:Math.max(2,Math.floor(round*.12)),interval:.1,scale:scale*1.15});
+      }
+
+      if(this.modeRules?.extraBosses&&round%10===0&&round>=20){
+        const type=round<40?'moab':round<70?'bfb':'zomg';
+        plan.push({type,count:1,interval:1.1,scale:scale*1.15});
+      }
+
+      return plan;
+    }
+
     const hpScale=this.difficulty.bloonHp*this.freeplayScale(1);
     const swarm=Math.max(1,Math.floor(1+round*1.15));
-    const group=(type,count,interval=.11,mult=1)=>add(type,Math.max(1,Math.round(count*(this.modeRules?.spawnMultiplier||1))),interval,hpScale*mult);
-    if(round<=2){group('red',round*8,.18);} else {
-      const tiers=[['red',.9],['blue',1.0],['green',1.05],['yellow',1.1],['pink',1.15],['black',1.2],['white',1.25],['zebra',1.35],['rainbow',1.45],['ceramic',1.65]];
-      const maxTier=round<5?1:round<8?2:round<12?4:round<20?5:round<30?7:9;
-      for(let i=0;i<=maxTier;i++){
-        const [type,mult]=tiers[i];const count=Math.max(2,Math.floor(swarm*(i===0?1.7:1/(i*.35+1)*1.4)));group(type,count,.075+i*.015,mult);
-      }
-      if(round%5===0&&round>=20)group('lead',Math.floor(round/4),.18,1.5);
-      if(this.modeRules?.alternateBloons&&round>=5){
-        group('lead',Math.max(2,Math.floor(round*.22)),.12,1.2);
-        if(round>=12)group('purple',Math.max(2,Math.floor(round*.18)),.10,1.15);
-        if(round>=20)group('white',Math.max(3,Math.floor(round*.2)),.09,1.2);
-      }
-      if(round>=25)group('ceramic',Math.floor(round*.35),.12,1.7);
-      if(round>=30&&round%10===0)group('moab',Math.max(1,Math.floor(round/30)),.8,1+round*.015);
-      if(round>=40&&round%10===0)group('bfb',Math.max(1,Math.floor(round/45)),1.0,1+round*.012);
-      if(round>=50&&round%10===0)group('zomg',Math.max(1,Math.floor(round/65)),1.3,1+round*.012);
-      if(round>=60&&round%10===0)group('ddt',Math.max(2,Math.floor(round/18)),.6,1+round*.018);
-      if(round>=80&&round%10===0)group('bad',Math.max(1,Math.floor(round/90)),1.6,1+round*.02);
-      if(round===100)group('bloonBoss',1,2.0,1);
-      if(this.modeRules?.extraBosses&&round%10===0&&round>=20){
-        if(round<40)group('moab',1,.9,1.15);
-        else if(round<70)group('bfb',1,1.1,1.18);
-        else group('zomg',1,1.4,1.2);
-      }
+    const group=(type,count,interval=.11,mult=1)=>plan.push({
+      type,
+      count:Math.max(1,Math.round(count*(this.modeRules?.spawnMultiplier||1))),
+      interval,
+      scale:hpScale*mult
+    });
+
+    const tiers=[['red',.9],['blue',1.0],['green',1.05],['yellow',1.1],['pink',1.15],['black',1.2],['white',1.25],['zebra',1.35],['rainbow',1.45],['ceramic',1.65]];
+    const maxTier=round<5?1:round<8?2:round<12?4:round<20?5:round<30?7:9;
+
+    for(let i=0;i<=maxTier;i++){
+      const [type,mult]=tiers[i];
+      const count=Math.max(2,Math.floor(swarm*(i===0?1.7:1/(i*.35+1)*1.4)));
+      group(type,count,.075+i*.015,mult);
     }
+
+    if(round%5===0&&round>=20)group('lead',Math.floor(round/4),.18,1.5);
+    if(round>=25)group('ceramic',Math.floor(round*.35),.12,1.7);
+    if(round>=30&&round%10===0)group('moab',Math.max(1,Math.floor(round/30)),.8,1+round*.015);
+    if(round>=40&&round%10===0)group('bfb',Math.max(1,Math.floor(round/45)),1.0,1+round*.012);
+    if(round>=50&&round%10===0)group('zomg',Math.max(1,Math.floor(round/65)),1.3,1+round*.012);
+    if(round>=60&&round%10===0)group('ddt',Math.max(2,Math.floor(round/18)),.6,1+round*.018);
+    if(round>=80&&round%10===0)group('bad',Math.max(1,Math.floor(round/90)),1.6,1+round*.02);
+    if(round===100)group('bloonBoss',1,2.0,1);
+
+    if(this.modeRules?.alternateBloons&&round>=5){
+      group('lead',Math.max(2,Math.floor(round*.22)),.12,1.2);
+      if(round>=12)group('purple',Math.max(2,Math.floor(round*.18)),.10,1.15);
+      if(round>=20)group('white',Math.max(3,Math.floor(round*.2)),.09,1.2);
+    }
+
+    if(this.modeRules?.extraBosses&&round%10===0&&round>=20){
+      if(round<40)group('moab',1,.9,1.15);
+      else if(round<70)group('bfb',1,1.1,1.18);
+      else group('zomg',1,1.4,1.2);
+    }
+
     return plan;
   }
   freeplayScale(mult=1){
