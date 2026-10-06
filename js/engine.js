@@ -513,7 +513,9 @@ class Tower {
   }
 
   sellValue() {
-    return Math.floor(this.totalSpent * GAME.sellRatio);
+    const heroBonus = this.game.heroes.reduce((best, hero) => Math.max(best, hero.stats.sellBonus ?? 0), 0);
+    const ratio = Math.min(0.95, GAME.sellRatio + heroBonus);
+    return Math.floor(this.totalSpent * ratio);
   }
 
   abilityReady() {
@@ -1007,8 +1009,23 @@ class Game {
   }
 
   incomeMultiplier() {
-    const difficulty = this.currentDifficulty === "apprentice" ? 1.15 : this.currentDifficulty === "veteran" ? 0.88 : this.currentDifficulty === "nightmare" ? 0.72 : this.currentDifficulty === "cataclysm" ? 0.58 : 1;
-    return difficulty;
+    let multiplier = this.currentDifficulty === "apprentice" ? 1.15 :
+      this.currentDifficulty === "veteran" ? 0.88 :
+      this.currentDifficulty === "nightmare" ? 0.72 :
+      this.currentDifficulty === "cataclysm" ? 0.58 : 1;
+
+    for (const tower of this.towers) {
+      if (tower.spec.category === "support") {
+        multiplier *= 1 + Math.max(0, tower.stats.incomeBonus ?? 0);
+      }
+    }
+
+    for (const hero of this.heroes) {
+      multiplier *= 1 + Math.max(0, hero.stats.incomeMultiplier ?? 0);
+      multiplier += Math.max(0, hero.stats.roundIncome ?? 0);
+    }
+
+    return multiplier;
   }
 
   spawnEnemy(entry) {
@@ -1303,6 +1320,12 @@ class Game {
     };
   }
 
+  getTowerPrice(spec) {
+    const discounts = this.heroes.map((hero) => hero.stats.discount ?? 0);
+    const discount = Math.min(0.25, discounts.length ? Math.max(...discounts) : 0);
+    return Math.max(1, Math.ceil(spec.cost * (1 - discount)));
+  }
+
   handlePointerDown() {
     if (!this.running || this.ended) return;
     const x = this.input.worldX;
@@ -1316,10 +1339,11 @@ class Game {
 
     if (this.selectedBuildId) {
       const spec = getTower(this.selectedBuildId);
-      if (spec && this.cash >= spec.cost && this.isBuildable(x, y, spec)) {
+      const price = spec ? this.getTowerPrice(spec) : Infinity;
+      if (spec && this.cash >= price && this.isBuildable(x, y, spec)) {
         const tower = new Tower(this, spec.id, x, y);
         this.towers.push(tower);
-        this.cash -= spec.cost;
+        this.cash -= price;
         this.save.statistics.towersPlaced += 1;
         this.statsThisRun.towersPlaced += 1;
         playSound("place");
