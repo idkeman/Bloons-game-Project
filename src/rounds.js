@@ -226,6 +226,15 @@ export class RoundController {
       reward
     });
 
+    if (
+      this.current >= 100 &&
+      !this.game.freeplay &&
+      !this.game.sandbox
+    ) {
+      this.game.win();
+      return;
+    }
+
     if (this.auto && this.game.state === "running") {
       this.start();
     }
