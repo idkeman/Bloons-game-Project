@@ -88,7 +88,7 @@ await page.locator("#play-btn").click();
 await page.locator(".map-card").first().waitFor();
 assert.equal(
   await page.locator(".map-card").count(),
-  8,
+  16,
   "all maps should be shown"
 );
 
