@@ -284,6 +284,7 @@ await page.evaluate(() => {
 
   const zones = game.map.buildZones;
   game.pendingTower = "sharpshooter";
+  game.multiPlace = true;
   game.buildMode = true;
 
   for (let index = 0; index < 3; index += 1) {
@@ -301,6 +302,7 @@ await page.evaluate(() => {
     );
   }
 
+  game.multiPlace = false;
   const paths = [0, 1, 2];
 
   game.towers.forEach(
