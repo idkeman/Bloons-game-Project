@@ -366,7 +366,7 @@ export function activateTowerAbility(game, tower) {
     case "time":
       slowAll(game, .88, 7);
       for (const bloon of game.bloons) {
-        for (const status of Object.keys(bloon.status)) {
+        for (const status of Object.keys(bloon.status || {})) {
           bloon.status[status] *= 1.75;
         }
       }
