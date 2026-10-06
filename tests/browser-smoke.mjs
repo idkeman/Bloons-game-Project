@@ -542,8 +542,6 @@ assert.equal(
   "saved tower should resume"
 );
 
-await page.locator("#close-selection-btn").click();
-
 await page.locator("#menu-btn").click();
 
 await page.locator("#progress-btn").click();
