@@ -154,7 +154,7 @@ export class UIController {
 
       const row = document.createElement("div");
       row.style.display = "grid";
-      row.style.gridTemplateColumns = "1fr auto";
+      row.style.gridTemplateColumns = "1fr 1fr auto";
       row.style.gap = "8px";
 
       const select = document.createElement("select");
@@ -170,6 +170,23 @@ export class UIController {
         ["hard", "Hard"],
         ["extreme", "Extreme"],
         ["impossible", "Impossible"]
+      ];
+
+      const modeSelect = document.createElement("select");
+      modeSelect.style.background = "#101721";
+      modeSelect.style.color = "inherit";
+      modeSelect.style.border = "1px solid rgba(255,255,255,.12)";
+      modeSelect.style.borderRadius = "10px";
+      modeSelect.style.padding = "9px";
+
+      const modes = [
+        ["standard", "Standard"],
+        ["halfCash", "Half Cash"],
+        ["reverse", "Reverse Route"],
+        ["doubleHealth", "Double Health"],
+        ["apocalypse", "Apocalypse"],
+        ["glass", "Glass Field"],
+        ["endurance", "Endurance"]
       ];
 
       for (const [value, label] of difficultyNames) {
@@ -195,7 +212,14 @@ export class UIController {
         );
       };
 
-      row.append(select, deploy);
+      for (const [value, label] of modes) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        modeSelect.appendChild(option);
+      }
+
+      row.append(select, modeSelect, deploy);
       card.append(title, description, meta, row);
       this.nodes.mapList.appendChild(card);
     }
