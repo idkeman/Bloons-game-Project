@@ -324,6 +324,34 @@ assert.equal(
   "boss phase should spawn reinforcement units"
 );
 
+await page.locator(".tower-button").first().click();
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  const zone = game.map.buildZones[0];
+  const x = (zone.x + zone.w / 2) * game.width;
+  const y = (zone.y + zone.h / 2) * game.height;
+  const rect = game.canvas.getBoundingClientRect();
+
+  game.canvas.dispatchEvent(
+    new PointerEvent("pointerdown", {
+      bubbles: true,
+      clientX: rect.left + x,
+      clientY: rect.top + y,
+      button: 0,
+      pointerType: "mouse"
+    })
+  );
+});
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.towers.length
+  ),
+  1,
+  "fresh resume-save state should contain a tower"
+);
+
 
 await page.evaluate(() => {
   const game = window.monkeyFrontier.game;
