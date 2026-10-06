@@ -14,6 +14,7 @@ const game = new Game({
 
 ui.bind({
   play: () => ui.showMapScreen(),
+  freeplay: () => ui.showMapScreen({ freeplay: true }),
   continue: () => {
     const snapshot = save.loadLastGame();
     if (snapshot) {
@@ -32,6 +33,7 @@ ui.bind({
   startMap: (mapId, options) => {
     game.start(mapId, {
       sandbox: Boolean(options?.sandbox),
+      freeplay: Boolean(options?.freeplay),
       difficulty: options?.difficulty || "normal"
     });
     ui.showGame();
