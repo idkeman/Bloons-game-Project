@@ -1055,7 +1055,6 @@ class Game {
       this.waveDirector.advance(dt);
       const due = this.waveDirector.due();
       for (const entry of due) {
-        if (spawnBudget >= 7) break;
         this.spawnEnemy({
           spec: getEnemy(entry.spec),
           pathIndex: entry.pathIndex,
