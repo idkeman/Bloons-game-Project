@@ -1,0 +1,26 @@
+name: Skyfront Dominion CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify JavaScript syntax
+        run: |
+          node --check js/data.js
+          node --check js/save.js
+          node --check js/audio.js
+          node --check js/engine.js
+          node --check js/ui.js
+          node --check tests/node-smoke.mjs
+      - name: Run simulation smoke suite
+        run: node tests/node-smoke.mjs
