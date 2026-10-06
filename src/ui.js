@@ -36,62 +36,52 @@ export class UIController {
   }
 
   bind(actions) {
-    document.querySelector("#play-btn").onclick =
-      () => actions.play();
-    document.querySelector("#sandbox-btn").onclick =
-      () => actions.sandbox();
-    document.querySelector("#progress-btn").onclick =
-      () => actions.progress();
-    document.querySelector("#glossary-btn").onclick =
-      () => actions.glossary();
+    this.startMapCallback = actions.startMap;
+    this.selectTowerCallback = actions.selectTower;
+    this.buyUpgradeCallback = actions.buyUpgrade;
 
-    document.querySelector("#map-back-btn").onclick =
-      () => actions.mapBack();
-    document.querySelector("#progress-back-btn").onclick =
-      () => actions.progressBack();
-    document.querySelector("#manual-back-btn").onclick =
-      () => actions.manualBack();
+    document.querySelector("#play-btn").onclick = actions.play;
+    document.querySelector("#sandbox-btn").onclick = actions.sandbox;
+    document.querySelector("#progress-btn").onclick = actions.progress;
+    document.querySelector("#glossary-btn").onclick = actions.glossary;
 
-    this.nodes.startRoundButton.onclick =
-      () => actions.startRound();
-    this.nodes.autoButton.onclick =
-      () => actions.toggleAuto();
-    this.nodes.speedButton.onclick =
-      () => actions.cycleSpeed();
-    this.nodes.pauseButton.onclick =
-      () => actions.togglePause();
-    document.querySelector("#save-btn").onclick =
-      () => actions.save();
-    document.querySelector("#menu-btn").onclick =
-      () => actions.menu();
-    document.querySelector("#close-selection-btn").onclick =
-      () => actions.closeSelection();
-    this.nodes.abilityButton.onclick =
-      () => {
-        const id = this.nodes.abilityButton.dataset.entityId;
+    document.querySelector("#map-back-btn").onclick = actions.mapBack;
+    document.querySelector("#progress-back-btn").onclick = actions.progressBack;
+    document.querySelector("#manual-back-btn").onclick = actions.manualBack;
+
+    this.nodes.startRoundButton.onclick = actions.startRound;
+    this.nodes.autoButton.onclick = actions.toggleAuto;
+    this.nodes.speedButton.onclick = actions.cycleSpeed;
+    this.nodes.pauseButton.onclick = actions.togglePause;
+
+    document.querySelector("#save-btn").onclick = actions.save;
+    document.querySelector("#menu-btn").onclick = actions.menu;
+    document.querySelector("#close-selection-btn").onclick = actions.closeSelection;
+
+    this.nodes.abilityButton.onclick = () => {
+      const id = this.nodes.abilityButton.dataset.entityId;
+      if (id) {
         actions.activateAbility(id);
-      };
-    this.nodes.paragonButton.onclick =
-      () => {
-        const id = this.nodes.paragonButton.dataset.entityId;
-        actions.ascend(id);
-      };
+      }
+    };
 
-    this.nodes.buildButton.onclick =
-      () => actions.toggleBuild();
-    this.nodes.multiButton.onclick =
-      () => actions.toggleMulti();
-    document.querySelector("#sell-mode-btn").onclick =
-      () => actions.sell();
-    document.querySelector("#upgrade-mode-btn").onclick =
-      () => actions.upgradeMode();
+    this.nodes.paragonButton.onclick = () => {
+      const id = this.nodes.paragonButton.dataset.entityId;
+      if (id) {
+        actions.ascend(id);
+      }
+    };
+
+    this.nodes.buildButton.onclick = actions.toggleBuild;
+    this.nodes.multiButton.onclick = actions.toggleMulti;
+    document.querySelector("#sell-mode-btn").onclick = actions.sell;
+    document.querySelector("#upgrade-mode-btn").onclick = actions.upgradeMode;
   }
 
   showScreen(name) {
     Object.values(this.screens).forEach(
       (screen) => screen.classList.remove("active")
     );
-
     this.screens[name].classList.add("active");
   }
 
@@ -120,335 +110,318 @@ export class UIController {
 
   setProfile(profile) {
     this.nodes.profileStrip.textContent =
-      "Level " +
-      profile.level +
-      "  •  " +
-      profile.monkeyMoney +
+      "Level " + profile.level +
+      "  •  " + profile.monkeyMoney.toLocaleString() +
       " frontier credits";
   }
 
   renderMapList(maps) {
-    this.nodes.mapList.innerHTML = "";
+    this.nodes.mapList.replaceChildren();
 
     for (const map of maps) {
       const card = document.createElement("article");
       card.className = "map-card";
 
-      card.innerHTML = [
-        "<h3>",
-        map.name,
-        "</h3>",
-        "<p>",
-        map.description,
-        "</p>",
-        "<div class="map-meta">",
-        "<span class="tag">Difficulty ",
-        map.difficulty,
-        "</span>",
-        "<span class="tag">",
-        map.water ? "Water" : "Land",
-        "</span>",
-        "<span class="tag">",
-        map.lives,
-        " lives</span>",
-        "</div>",
-        "<button class="primary">DEPLOY</button>"
-      ].join("");
+      const title = document.createElement("h3");
+      title.textContent = map.name;
 
-      card.querySelector("button").onclick =
-        () => {
-          const sandbox =
-            Boolean(
-              this.mapScreenOptions?.sandbox
-            );
-          this.startMapCallback(
-            map.id,
-            { sandbox }
-          );
-        };
+      const description = document.createElement("p");
+      description.textContent = map.description;
 
+      const meta = document.createElement("div");
+      meta.className = "map-meta";
+      meta.append(
+        this.tag("Difficulty " + map.difficulty),
+        this.tag(map.water ? "Water" : "Land"),
+        this.tag(map.lives + " lives")
+      );
+
+      const row = document.createElement("div");
+      row.style.display = "grid";
+      row.style.gridTemplateColumns = "1fr auto";
+      row.style.gap = "8px";
+
+      const select = document.createElement("select");
+      select.style.background = "#101721";
+      select.style.color = "inherit";
+      select.style.border = "1px solid rgba(255,255,255,.12)";
+      select.style.borderRadius = "10px";
+      select.style.padding = "9px";
+
+      const difficultyNames = [
+        ["easy", "Easy"],
+        ["normal", "Normal"],
+        ["hard", "Hard"],
+        ["extreme", "Extreme"],
+        ["impossible", "Impossible"]
+      ];
+
+      for (const [value, label] of difficultyNames) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        if (value === "normal") {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      }
+
+      const deploy = document.createElement("button");
+      deploy.className = "primary";
+      deploy.textContent = "DEPLOY";
+      deploy.onclick = () => {
+        this.startMapCallback(
+          map.id,
+          {
+            sandbox: Boolean(this.mapScreenOptions?.sandbox),
+            difficulty: select.value
+          }
+        );
+      };
+
+      row.append(select, deploy);
+      card.append(title, description, meta, row);
       this.nodes.mapList.appendChild(card);
     }
   }
 
+  tag(text) {
+    const node = document.createElement("span");
+    node.className = "tag";
+    node.textContent = text;
+    return node;
+  }
+
   renderTowerButtons(towers) {
-    this.nodes.towerButtons.innerHTML = "";
+    this.nodes.towerButtons.replaceChildren();
 
     for (const tower of towers) {
-      const button =
-        document.createElement("button");
-
-      button.className = "tower-button";
-      button.dataset.towerId = tower.id;
-
-      button.innerHTML = [
-        "<span class="tower-icon">",
-        tower.icon,
-        "</span>",
-        "<span class="name">",
-        tower.name,
-        "</span>",
-        "<span class="cost">$",
-        tower.cost,
-        "</span>"
-      ].join("");
-
-      button.title = tower.description;
-
-      button.onclick = () => {
-        if (this.selectTowerCallback) {
-          this.selectTowerCallback(
-            tower.id
-          );
-        }
-      };
-
       this.nodes.towerButtons.appendChild(
-        button
+        this.makeTowerButton(
+          tower.name,
+          tower.icon,
+          tower.cost,
+          tower.description,
+          () => this.selectTowerCallback(tower.id)
+        )
       );
     }
 
-    const heroButton =
-      document.createElement("button");
-
-    heroButton.className =
-      "tower-button";
-
-    heroButton.innerHTML = [
-      "<span class="tower-icon">★</span>",
-      "<span class="name">Nova</span>",
-      "<span class="cost">$700</span>"
-    ].join("");
-
-    heroButton.title =
-      "Deploy the Nova hero.";
-
-    heroButton.onclick = () => {
-      this.toast(
-        "Hero placement is unlocked through the hero deployment key in the next content pass."
-      );
-    };
-
-    this.nodes.towerButtons.appendChild(
-      heroButton
+    const hero = this.makeTowerButton(
+      "Nova Hero",
+      "★",
+      700,
+      "Deploy Nova with level-based upgrades and an active ability.",
+      () => this.selectTowerCallback("hero:nova")
     );
+
+    this.nodes.towerButtons.appendChild(hero);
+  }
+
+  makeTowerButton(name, icon, cost, title, action) {
+    const button = document.createElement("button");
+    button.className = "tower-button";
+    button.title = title;
+
+    const iconNode = document.createElement("span");
+    iconNode.className = "tower-icon";
+    iconNode.textContent = icon;
+
+    const nameNode = document.createElement("span");
+    nameNode.className = "name";
+    nameNode.textContent = name;
+
+    const costNode = document.createElement("span");
+    costNode.className = "cost";
+    costNode.textContent = "$" + cost;
+
+    button.append(iconNode, nameNode, costNode);
+    button.onclick = action;
+    return button;
   }
 
   renderSelection(selection) {
     if (!selection) {
-      this.nodes.selectionPanel.classList.add(
-        "hidden"
-      );
+      this.nodes.selectionPanel.classList.add("hidden");
       return;
     }
 
-    this.nodes.selectionPanel.classList.remove(
-      "hidden"
-    );
-
-    this.nodes.selectionName.textContent =
-      selection.name;
+    this.nodes.selectionPanel.classList.remove("hidden");
+    this.nodes.selectionName.textContent = selection.name;
 
     if (selection.type === "hero") {
-      this.nodes.selectionLevel.textContent =
-        "Hero level " +
-        selection.tier +
-        "  •  XP " +
-        selection.xp;
-
-      this.nodes.selectionStats.innerHTML =
-        this.statGrid([
-          ["Damage", selection.attack.damage.toFixed(1)],
-          ["Range", Math.round(selection.attack.range)],
-          ["Pops", selection.pops]
-        ]);
-
-      this.nodes.upgradePaths.innerHTML =
-        "<div class="upgrade-path"><div class="path-title"><span>Ability</span><span>" +
-        (
-          selection.abilityReady
-            ? "READY"
-            : Math.ceil(selection.abilityCooldown) + "s"
-        ) +
-        "</span></div></div>";
-
-      this.nodes.abilityButton.classList.remove(
-        "hidden"
-      );
-      this.nodes.abilityButton.dataset.entityId =
-        selection.id;
-
-      this.nodes.paragonButton.classList.add(
-        "hidden"
-      );
+      this.renderHeroSelection(selection);
       return;
     }
 
     this.nodes.selectionLevel.textContent =
-      "Tier " +
-      selection.tier +
-      "  •  Target: " +
-      selection.targetMode;
+      "Tier " + selection.tier +
+      "  •  Target: " + selection.targetMode;
 
-    this.nodes.selectionStats.innerHTML =
-      this.statGrid([
-        ["Damage", Number(selection.attack.damage || 0).toFixed(1)],
-        ["Pierce", Math.floor(selection.attack.pierce || 0)],
-        ["Range", Math.floor(selection.attack.range || 0)],
-        ["Pops", selection.pops],
-        ["Damage dealt", Math.floor(selection.damage)],
-        ["Cash", Math.floor(selection.cash)]
-      ]);
+    this.nodes.selectionStats.innerHTML = this.statGrid([
+      ["Damage", Number(selection.attack.damage || 0).toFixed(1)],
+      ["Pierce", Math.floor(selection.attack.pierce || 0)],
+      ["Range", Math.floor(selection.attack.range || 0)],
+      ["Pops", selection.pops],
+      ["Damage", Math.floor(selection.damage)],
+      ["Cash", Math.floor(selection.cash)]
+    ]);
 
-    this.nodes.upgradePaths.innerHTML = "";
+    this.nodes.upgradePaths.replaceChildren();
 
     for (let path = 0; path < 3; path += 1) {
-      const wrapper =
-        document.createElement("div");
-
+      const wrapper = document.createElement("div");
       wrapper.className = "upgrade-path";
 
-      const title =
-        document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "path-title";
 
-      title.className =
-        "path-title";
+      const left = document.createElement("span");
+      left.textContent = "Path " + (path + 1);
 
-      title.innerHTML =
-        "<span>Path " +
-        (path + 1) +
-        "</span><span>" +
-        selection.pathLevels[path] +
-        "/5</span>";
+      const right = document.createElement("span");
+      right.textContent = selection.pathLevels[path] + "/5";
 
+      title.append(left, right);
       wrapper.appendChild(title);
 
-      for (
-        let tier = 1;
-        tier <= 5;
-        tier += 1
-      ) {
-        const upgrade =
-          selection.paths[path][tier - 1];
+      for (let tier = 1; tier <= 5; tier += 1) {
+        const upgrade = selection.paths[path][tier - 1];
+        const row = document.createElement("div");
+        row.className = "upgrade-tier";
 
-        const row =
-          document.createElement("div");
+        const details = document.createElement("div");
+        details.className = "description";
 
-        row.className =
-          "upgrade-tier";
+        const badge = document.createElement("div");
+        badge.className = "tier-badge";
+        badge.textContent = "Tier " + tier;
 
-        const description =
-          document.createElement("div");
+        const name = document.createElement("div");
+        name.className = "upgrade-name";
+        name.textContent = upgrade.name;
 
-        description.className =
-          "description";
+        const description = document.createElement("div");
+        description.className = "upgrade-desc";
+        description.textContent = upgrade.description;
 
-        description.innerHTML = [
-          "<div class="tier-badge">",
-          tier,
-          "</div>",
-          "<div class="upgrade-name">",
-          upgrade.name,
-          "</div>",
-          "<div class="upgrade-desc">",
-          upgrade.description,
-          "</div>"
-        ].join("");
+        details.append(badge, name, description);
 
-        const button =
-          document.createElement("button");
+        const button = document.createElement("button");
+        button.className = "upgrade-buy";
 
-        button.className =
-          "upgrade-buy";
-
-        const purchased =
-          selection.pathLevels[path] >= tier;
-
+        const purchased = selection.pathLevels[path] >= tier;
         const available =
           !purchased &&
           selection.pathLevels[path] + 1 === tier;
 
-        button.disabled =
-          purchased || !available;
-
+        button.disabled = purchased || !available;
         button.textContent =
-          purchased
-            ? "OWNED"
-            : "$" + upgrade.cost;
+          purchased ? "OWNED" : "$" + upgrade.cost;
 
-        button.dataset.path = path;
-        button.dataset.tier = tier;
-        button.dataset.entityId =
-          selection.id;
+        button.onclick = () =>
+          this.buyUpgradeCallback(
+            selection.id,
+            path,
+            tier
+          );
 
-        button.onclick = () => {
-          if (this.buyUpgradeCallback) {
-            this.buyUpgradeCallback(
-              selection.id,
-              Number(button.dataset.path),
-              Number(button.dataset.tier)
-            );
-          }
-        };
-
-        row.append(
-          description,
-          button
-        );
-
+        row.append(details, button);
         wrapper.appendChild(row);
       }
 
-      this.nodes.upgradePaths.appendChild(
-        wrapper
-      );
+      this.nodes.upgradePaths.appendChild(wrapper);
     }
+
+    this.nodes.abilityButton.classList.remove("hidden");
+    this.nodes.abilityButton.dataset.entityId = selection.id;
+    this.nodes.abilityButton.textContent = "ABILITY";
 
     if (selection.canAscend) {
-      this.nodes.paragonButton.classList.remove(
-        "hidden"
-      );
-      this.nodes.paragonButton.dataset.entityId =
-        selection.id;
-      this.nodes.paragonButton.textContent =
-        "ASCEND  $25000";
-    } else {
-      this.nodes.paragonButton.classList.add(
-        "hidden"
-      );
-    }
-
-    if (selection.ascended) {
-      this.nodes.paragonButton.classList.remove(
-        "hidden"
-      );
+      this.nodes.paragonButton.classList.remove("hidden");
+      this.nodes.paragonButton.dataset.entityId = selection.id;
+      this.nodes.paragonButton.disabled = false;
+      this.nodes.paragonButton.textContent = "ASCEND  $25000";
+    } else if (selection.ascended) {
+      this.nodes.paragonButton.classList.remove("hidden");
       this.nodes.paragonButton.disabled = true;
       this.nodes.paragonButton.textContent =
-        "ASCENDED • DEGREE " +
-        selection.ascensionDegree;
+        "ASCENDED • DEGREE " + selection.ascensionDegree;
     } else {
-      this.nodes.paragonButton.disabled = false;
+      this.nodes.paragonButton.classList.add("hidden");
+    }
+  }
+
+  renderHeroSelection(selection) {
+    this.nodes.selectionLevel.textContent =
+      "Hero level " + selection.tier +
+      "  •  XP " + selection.xp;
+
+    this.nodes.selectionStats.innerHTML = this.statGrid([
+      ["Damage", selection.attack.damage.toFixed(1)],
+      ["Range", Math.round(selection.attack.range)],
+      ["Pops", selection.pops]
+    ]);
+
+    this.nodes.upgradePaths.innerHTML = "";
+
+    const card = document.createElement("div");
+    card.className = "upgrade-path";
+
+    const header = document.createElement("div");
+    header.className = "path-title";
+    header.textContent = "Next hero milestones";
+
+    card.appendChild(header);
+
+    for (let index = 0; index < selection.levels.length; index += 1) {
+      const row = document.createElement("div");
+      row.className = "upgrade-tier";
+
+      const details = document.createElement("div");
+      details.className = "description";
+
+      const badge = document.createElement("div");
+      badge.className = "tier-badge";
+      badge.textContent = "Level " + (index + 1);
+
+      const name = document.createElement("div");
+      name.className = "upgrade-name";
+      name.textContent = selection.levels[index];
+
+      details.append(badge, name);
+      row.append(details);
+
+      const state = document.createElement("button");
+      state.className = "upgrade-buy";
+      state.disabled = true;
+      state.textContent =
+        index + 1 <= selection.tier
+          ? "OWNED"
+          : "LOCKED";
+
+      row.appendChild(state);
+      card.appendChild(row);
     }
 
-    this.nodes.abilityButton.classList.remove(
-      "hidden"
-    );
-    this.nodes.abilityButton.dataset.entityId =
-      selection.id;
+    this.nodes.upgradePaths.appendChild(card);
+
+    this.nodes.abilityButton.classList.remove("hidden");
+    this.nodes.abilityButton.dataset.entityId = selection.id;
     this.nodes.abilityButton.textContent =
-      "ABILITY";
+      selection.abilityReady
+        ? "ABILITY READY"
+        : "ABILITY " + Math.ceil(selection.abilityCooldown) + "s";
+
+    this.nodes.paragonButton.classList.add("hidden");
   }
 
   statGrid(items) {
     return items.map(
       ([label, value]) =>
-        "<div class="stat-card">" +
-        "<div class="label">" +
-        label +
-        "</div>" +
-        "<div class="value">" +
-        value +
-        "</div>" +
+        '<div class="stat-card">' +
+        '<div class="label">' + label + "</div>" +
+        '<div class="value">' + value + "</div>" +
         "</div>"
     ).join("");
   }
@@ -467,55 +440,35 @@ export class UIController {
       "▶ " + hud.speed + "×";
 
     this.nodes.pauseButton.textContent =
-      hud.state === "paused"
-        ? "▶"
-        : "Ⅱ";
+      hud.state === "paused" ? "▶" : "Ⅱ";
 
     this.nodes.startRoundButton.disabled =
-      hud.active ||
-      hud.state !== "running";
+      hud.active || hud.state !== "running";
 
     this.nodes.autoButton.textContent =
-      hud.autoRounds
-        ? "AUTO ✓"
-        : "AUTO";
+      hud.autoRounds ? "AUTO ✓" : "AUTO";
 
     this.nodes.bossWarning.textContent =
       hud.boss
-        ? hud.boss.name +
-          "  " +
-          Math.ceil(
-            hud.boss.health
-          )
+        ? hud.boss.name + "  " + Math.ceil(hud.boss.health)
         : "";
   }
 
   setGameState(state) {
-    if (state === "menu") {
-      return;
-    }
-
     if (state === "paused") {
       this.toast("Game paused.");
-    }
-
-    if (state === "won") {
+    } else if (state === "won") {
       this.toast("Run complete.");
-    }
-
-    if (state === "lost") {
+    } else if (state === "lost") {
       this.toast("Run failed.");
     }
   }
 
   renderProgress(profile) {
-    this.nodes.progressContent.innerHTML = "";
+    this.nodes.progressContent.replaceChildren();
 
-    const grid =
-      document.createElement("div");
-
-    grid.className =
-      "progress-grid";
+    const grid = document.createElement("div");
+    grid.className = "progress-grid";
 
     const cards = [
       ["Level", profile.level],
@@ -528,82 +481,51 @@ export class UIController {
     ];
 
     for (const [name, value] of cards) {
-      const card =
-        document.createElement("article");
+      const card = document.createElement("article");
+      card.className = "progress-card";
 
-      card.className =
-        "progress-card";
+      const heading = document.createElement("h3");
+      heading.textContent = name;
 
-      card.innerHTML =
-        "<h3>" + name + "</h3>" +
-        "<div class="progress-value">" +
-        value.toLocaleString() +
-        "</div>";
+      const valueNode = document.createElement("div");
+      valueNode.className = "progress-value";
+      valueNode.textContent = Number(value).toLocaleString();
 
+      card.append(heading, valueNode);
       grid.appendChild(card);
     }
 
-    this.nodes.progressContent.appendChild(
-      grid
-    );
+    this.nodes.progressContent.appendChild(grid);
   }
 
   renderManual(glossary) {
-    this.nodes.manualContent.innerHTML = "";
+    this.nodes.manualContent.replaceChildren();
 
-    for (const [title, text] of glossary) {
-      const section =
-        document.createElement("section");
+    for (const [title, body] of glossary) {
+      const section = document.createElement("section");
 
-      section.innerHTML =
-        "<h3>" + title + "</h3>" +
-        "<p>" + text + "</p>";
+      const heading = document.createElement("h3");
+      heading.textContent = title;
 
-      this.nodes.manualContent.appendChild(
-        section
-      );
+      const text = document.createElement("p");
+      text.textContent = body;
+
+      section.append(heading, text);
+      this.nodes.manualContent.appendChild(section);
     }
   }
 
+  updateProgress(profile) {
+    this.renderProgress(profile);
+  }
+
   toast(message) {
-    const item =
-      document.createElement("div");
-
-    item.className =
-      "toast";
-
+    const item = document.createElement("div");
+    item.className = "toast";
     item.textContent = message;
 
-    this.nodes.toastStack.appendChild(
-      item
-    );
+    this.nodes.toastStack.appendChild(item);
 
-    window.setTimeout(() => {
-      item.remove();
-    }, 2200);
-  }
-
-  set startMapCallback(value) {
-    this._startMapCallback = value;
-  }
-
-  get startMapCallback() {
-    return this._startMapCallback;
-  }
-
-  set selectTowerCallback(value) {
-    this._selectTowerCallback = value;
-  }
-
-  get selectTowerCallback() {
-    return this._selectTowerCallback;
-  }
-
-  set buyUpgradeCallback(value) {
-    this._buyUpgradeCallback = value;
-  }
-
-  get buyUpgradeCallback() {
-    return this._buyUpgradeCallback;
+    window.setTimeout(() => item.remove(), 2200);
   }
 }
