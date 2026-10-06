@@ -229,6 +229,7 @@ export class Bloon {
     this.phase=0;
     this.bossAbilityTimer=4;
     this.cashGiven=false;
+    this.tags = new Set(this.tags);
     this.path=this.game.paths[pathIndex];
     const p=this.path.pointAtDistance(0);
     this.x=p.x;this.y=p.y;
@@ -341,6 +342,8 @@ export class Bloon {
     if(this.dead)return;
     this.dead=true;
     this.game.lives=Math.max(0,this.game.lives-this.damage);
+    this.game.livesLostThisRun=true;
+    this.game.achievements.stats.oneLifeRounds += this.game.lives===1 ? 1 : 0;
     this.game.spawnText(this.x,this.y-20,`-${this.damage} ♥`,'#ff7777',13);
     this.game.toast(`${this.base.name} leaked`, 'danger');
     if(this.game.lives<=0)this.game.endGame(false);
@@ -421,6 +424,11 @@ export class Tower {
     this.game.cash-=cost;
     this.levels[path]++;
     this.totalInvested+=cost;
+    this.game.achievements.stats.upgradesBought+=1;
+    if(this.levels[path]===5)this.game.achievements.stats.tier5Count+=1;
+    if(this.levels.join('-')==='3-2-2')this.game.achievements.stats.crosspathCount+=1;
+    if(this.levels.join('-')==='5-2-2')this.game.achievements.stats.fiveTwoTwo+=1;
+    if(this.levels.every(level=>level>=3))this.game.achievements.stats.allPathsUsed+=1;
     this.applyUpgradeEffects(upgrade.effects);
     this.game.spawnText(this.x,this.y-38,`T${path+1}-${tier+1}`,'#8fe9ff',11);
     this.game.toast(`${this.def.name}: ${upgrade.name}`,'good');
@@ -442,6 +450,16 @@ export class Tower {
     Object.keys(effects).forEach(k=>{if(!['range','damage','pierce','attackRate','count','speed','burn','burst','rockets','missile'].includes(k)){this[k]=Math.max(this[k]||0,effects[k]);}});
   }
   recalculate(){
+    if(this.paragon){
+      this.effectiveRange=260+(this.paragonDegree||1)*2;
+      this.effectiveDamage=120+(this.paragonDegree||1)*5;
+      this.effectivePierce=150+(this.paragonDegree||1)*10;
+      this.effectiveRate=.11;
+      this.effectiveCount=6+Math.floor((this.paragonDegree||1)/8);
+      this.effectiveSpeed=1050;
+      this.isStealth=true;
+      return;
+    }
     this.effectiveRange=(this.def.range===9999?9999:this.def.range+(this.extraRange||0));
     this.effectiveDamage=this.def.damage+(this.extraDamage||0);
     this.effectivePierce=Math.max(0,this.def.pierce+(this.extraPierce||0));
@@ -459,7 +477,8 @@ export class Tower {
     return this.effectiveRange||this.def.range;
   }
   update(dt){
-    if(this.sold||this.paragon)return;
+    if(this.sold)return;
+    if(this.paragon){this.updateParagon(dt);return;}
     this.highlight=Math.max(0,this.highlight-dt);
     this.cooldown-=dt;
     this.incomeTimer-=dt;
@@ -476,6 +495,40 @@ export class Tower {
       if(target){this.fireAt(target);this.cooldown=Math.max(.045,this.effectiveRate*(1-this.game.globalSpeedBonus-this.localSpeedBonus));}
     }
   }
+  updateParagon(dt){
+    this.highlight=Math.max(0,this.highlight-dt);
+    this.cooldown-=dt;
+
+    if(this.cooldown>0)return;
+
+    const target=this.selectTarget(true);
+    if(!target)return;
+
+    const count=Math.max(6,Math.round(this.effectiveCount||6));
+    const damage=Math.max(1,Math.round(this.effectiveDamage||120));
+    const pierce=Math.max(1,Math.round(this.effectivePierce||150));
+    const speed=this.effectiveSpeed||1050;
+    const center=Math.atan2(target.y-this.y,target.x-this.x);
+
+    for(let i=0;i<count;i+=1){
+      const spread=count===1?0:(i/(count-1)-.5)*.9;
+      const angle=center+spread;
+      const v=Vec2.fromAngle(angle,speed);
+      this.game.projectiles.push(new Projectile(this.game,{
+        x:this.x,y:this.y,vx:v.x,vy:v.y,speed,
+        radius:7,damage,pierce,color:this.def.color,
+        kind:'rocket',homing:true,turnRate:16,
+        burst:55,chain:4,owner:this,
+        bossBonus:80+(this.paragonDegree||1)*8,
+        moabBonus:60+(this.paragonDegree||1)*5,
+        armorPierce:true
+      }));
+    }
+
+    this.game.spawnRing(this.x,this.y,80+(this.paragonDegree||1),this.def.color);
+    this.cooldown=.11;
+  }
+
   applyNearbyBuffs(){
     this.localSpeedBonus=0;this.localDamageBonus=0;this.localPierceBonus=0;this.localRangeBonus=0;
     for(const tower of this.game.towers){
@@ -774,7 +827,7 @@ export class GameEngine {
     this.camera={x:0,y:0};
     this.paths=[];this.map=null;this.difficulty=DIFFICULTIES.normal;this.mode=MODES.standard;
     this.towers=[];this.bloons=[];this.projectiles=[];this.particles=[];this.texts=[];this.effects=[];
-    this.mastery=MasteryProfile.load();this.masteryEffects=this.mastery.getEffects();
+    this.mastery=MasteryProfile.load();this.masteryEffects=this.mastery.getEffects();this.achievements=AchievementProfile.load();
     this.cash=650;this.lives=100;this.eco=100;this.round=0;this.roundTimer=0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.globalTargetMode=null;this.globalTargetTimer=0;this.selected=null;this.pendingTower=null;this.selectedHasStealth=false;this.gameTime=0;this.speedMultiplier=1;this.lastFrame=performance.now()/1000;this.hero=null;this.heroId=null;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.soundEnabled=false;
     this.screenShake=0;
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(this.canvas.parentElement||this.canvas);
@@ -790,6 +843,10 @@ export class GameEngine {
     this.towers=[];this.bloons=[];this.projectiles=[];this.particles=[];this.texts=[];this.effects=[];
     this.masteryEffects=this.mastery.getEffects();
     this.modeRules=this.mode.rules||{};
+    this.achievements.recordMap(this.map.id);
+    this.achievements.recordHeroType(this.heroId);
+    this.livesLostThisRun=false;
+    this.emergencyLeakUsed=false;
     this.cash=Math.round((this.mode.startCash+this.masteryEffects.startingCash)*this.difficulty.cashMult);this.lives=Math.max(1,Math.round(this.mode.startLives*this.difficulty.lifeMult));this.eco=100;this.round=this.mode.id==='freeplay'?79:0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.selected=null;this.pendingTower=null;this.gameTime=0;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.state=GameState.PLAYING;this.updateCamera();
     this.save();
   }
@@ -1033,6 +1090,8 @@ export class GameEngine {
     const tower=new Tower(this,id,x,y);tower.recalculate();this.towers.push(tower);this.selected=tower;
     this.achievements.stats.towersPlaced+=1;
     this.achievements.recordTowerType(id);
+    this.achievements.stats.towersPlaced+=1;
+    this.achievements.recordTowerType(id);
     if(tower.levels.some(level=>level>0))this.achievements.stats.upgradesBought+=1;this.pendingTower=null;this.toast(`${tower.def.name} placed`,'good');this.save();return tower;
   }
   placeHero(x,y){
@@ -1059,7 +1118,7 @@ export class GameEngine {
     const t=this.selected;if(!t||t===this.hero||t.sold)return false;
     if(this.modeRules?.noSell){this.toast('Resale is disabled in this mode','danger');return false;}
     const value=t.sellValue();t.sold=true;this.cash+=value;
-    this.achievements.stats.towersSold+=1;this.spawnText(t.x,t.y,`+$${value}`,'#ffe777',12);this.selected=null;this.toast('Tower sold','good');this.save();return true;
+    this.achievements.stats.towersSold+=1;this.checkAchievements();this.spawnText(t.x,t.y,`+$${value}`,'#ffe777',12);this.selected=null;this.toast('Tower sold','good');this.save();return true;
   }
   selectAt(x,y){
     let found=null;
@@ -1069,7 +1128,12 @@ export class GameEngine {
     this.selectedHasStealth=!!found?.isStealth;
     return found;
   }
-  activateSelectedAbility(index=0){if(this.selected instanceof Tower)return this.selected.activateAbility(index);return false;}
+  activateSelectedAbility(index=0){
+    if(!(this.selected instanceof Tower))return false;
+    const used=this.selected.activateAbility(index);
+    if(used){this.achievements.stats.abilitiesUsed+=1;this.checkAchievements();}
+    return used;
+  }
   tryPlaceAt(x,y){
     if(this.pendingTower==='hero')return this.placeHero(x,y);
     if(this.pendingTower)return this.placeTower(this.pendingTower,x,y);
@@ -1078,7 +1142,19 @@ export class GameEngine {
   togglePause(){if(this.state===GameState.PLAYING){this.state=GameState.PAUSED;this.achievements.stats.pauses+=1;this.checkAchievements();return true;} if(this.state===GameState.PAUSED){this.state=GameState.PLAYING;this.lastFrame=performance.now()/1000;return false;}return false;}
   setSpeed(){this.speedMultiplier=this.speedMultiplier===1?2:this.speedMultiplier===2?3:1;if(this.speedMultiplier>1){this.achievements.stats.fastRounds+=1;this.checkAchievements();}return this.speedMultiplier;}
   endGame(victory){
-    this.roundRunning=false;this.won=victory;this.lost=!victory;this.state=victory?GameState.VICTORY:GameState.GAME_OVER;this.save();
+    this.roundRunning=false;
+    this.won=victory;
+    this.lost=!victory;
+    if(victory){
+      if(this.difficulty.id==='hard')this.achievements.stats.hardClears+=1;
+      if(this.difficulty.id==='extreme')this.achievements.stats.extremeClears+=1;
+      if(this.difficulty.id==='impossible')this.achievements.stats.impossibleClears+=1;
+      const modeKey={alternate:'alternateClears',noSell:'noSellClears',doubleRush:'doubleRushClears',oneLife:'oneLifeClears',bossGauntlet:'bossGauntletClears'}[this.mode.id];
+      if(modeKey)this.achievements.stats[modeKey]+=1;
+    }
+    this.checkAchievements();
+    this.state=victory?GameState.VICTORY:GameState.GAME_OVER;
+    this.save();
   }
   save(){
     try{
