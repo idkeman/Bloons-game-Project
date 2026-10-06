@@ -43,7 +43,9 @@ test("crosspath rules permit 2-2-1 but block simultaneous tier-three paths", () 
 
   assert.equal(tower.canBuy(0, 2), true);
   assert.equal(tower.canBuy(1, 2), true);
+  assert.equal(tower.buyUpgrade(0, 2, 999999).ok, true);
   assert.equal(tower.canBuy(0, 3), true);
+  assert.equal(tower.buyUpgrade(0, 3, 999999).ok, true);
 
   assert.equal(tower.buyUpgrade(1, 2, 999999).ok, true);
   assert.equal(tower.buyUpgrade(2, 2, 999999).ok, true);
