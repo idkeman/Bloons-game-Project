@@ -1,5 +1,6 @@
 import { Game } from "./engine.js";
-import { TOWERS, MAPS, DIFFICULTIES, CHALLENGES, ACHIEVEMENTS, getTower } from "./data.js";
+import { TOWERS, MAPS, DIFFICULTIES, CHALLENGES, ACHIEVEMENTS } from "./data.js";
+import { HEROES } from "./heroes.js";
 import { loadSave, resetSave } from "./save.js";
 
 const canvas = document.querySelector("#gameCanvas");
@@ -29,7 +30,13 @@ const refs = {
   speedButton: $("#speedButton"),
   fastForward: $("#fastForwardButton"),
   palette: $("#towerPalette"),
+  heroPalette: $("#heroPalette"),
   selectionPanel: $("#selectedTowerPanel"),
+  heroSelectionPanel: $("#selectedHeroPanel"),
+  selectedHeroName: $("#selectedHeroName"),
+  selectedHeroStats: $("#selectedHeroStats"),
+  heroAbility: $("#heroAbilityButton"),
+  closeHeroSelection: $("#closeHeroSelectionButton"),
   selectedName: $("#selectedTowerName"),
   selectedStats: $("#selectedTowerStats"),
   closeSelection: $("#closeSelectionButton"),
@@ -82,6 +89,25 @@ function renderPalette() {
   }
 }
 
+
+function renderHeroPalette() {
+  refs.heroPalette.innerHTML = "";
+  for (const hero of HEROES) {
+    const button = document.createElement("button");
+    button.className = "tower-button";
+    button.innerHTML =
+      '<span class="icon">' + hero.name.split(" ").map((word) => word[0]).join("").slice(0, 2) +
+      '</span><span class="name">' + hero.name + '</span><div class="price">' +
+      formatMoney(hero.cost) + "</div>";
+    button.title = hero.title + " — " + hero.description;
+    button.addEventListener("click", () => {
+      game.selectHeroBuild(hero.id);
+      game.notify("Selected commander " + hero.name + ".");
+    });
+    refs.heroPalette.appendChild(button);
+  }
+}
+
 function renderHud() {
   refs.cash.textContent = formatMoney(game.cash);
   refs.lives.textContent = Math.max(0, Math.floor(game.lives)).toLocaleString();
@@ -108,6 +134,7 @@ function renderSelection(tower) {
     refs.selectionPanel.classList.add("hidden");
     return;
   }
+  refs.heroSelectionPanel.classList.add("hidden");
   refs.selectionPanel.classList.remove("hidden");
   refs.selectedName.textContent = tower.spec.name + (tower.apex ? " — Apex" : "");
   refs.selectedStats.innerHTML =
@@ -155,6 +182,36 @@ function renderSelection(tower) {
 
   document.querySelectorAll(".target-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.target === tower.targetMode);
+  });
+}
+
+
+function renderHeroSelection(hero) {
+  if (!hero) {
+    refs.heroSelectionPanel.classList.add("hidden");
+    return;
+  }
+
+  refs.selectionPanel.classList.add("hidden");
+  refs.heroSelectionPanel.classList.remove("hidden");
+  refs.selectedHeroName.textContent = hero.spec.name + " — " + hero.spec.title;
+  const currentLevel = hero.spec.levels[Math.max(0, hero.level - 1)];
+  refs.selectedHeroStats.innerHTML =
+    stat("Level", hero.level + " / " + hero.spec.levels.length) +
+    stat("XP", Math.floor(hero.xp).toLocaleString()) +
+    stat("Damage", hero.stats.damage.toFixed(1)) +
+    stat("Range", Math.floor(hero.stats.range)) +
+    stat("Cooldown", hero.stats.attackCooldown.toFixed(2) + "s") +
+    stat("Target", hero.targetMode);
+
+  const ability = hero.spec.ability;
+  const ready = hero.canUseAbility();
+  refs.heroAbility.disabled = !ready;
+  refs.heroAbility.textContent = ready ? ability.name : ability.name + " (" + Math.ceil(hero.abilityCooldown) + "s)";
+  refs.heroAbility.title = ability.description + (currentLevel ? " Current: " + currentLevel.name + " — " + currentLevel.description : "");
+
+  refs.heroSelectionPanel.querySelectorAll(".target-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.target === hero.targetMode);
   });
 }
 
@@ -241,6 +298,7 @@ refs.pause.addEventListener("click", () => game.togglePause());
 refs.speedButton.addEventListener("click", () => game.cycleSpeed());
 refs.fastForward.addEventListener("click", () => game.skipWave());
 refs.closeSelection.addEventListener("click", () => game.selectTower(null));
+refs.closeHeroSelection.addEventListener("click", () => game.selectHero(null));
 refs.sell.addEventListener("click", () => {
   if (game.selectedTower) game.sellTower(game.selectedTower);
 });
@@ -251,6 +309,15 @@ refs.ability.addEventListener("click", () => {
   else toast(game.selectedTower.spec.ability.name + " activated.");
   renderHud();
   renderSelection(game.selectedTower);
+});
+
+refs.heroAbility.addEventListener("click", () => {
+  if (!game.selectedHero) return;
+  const result = game.selectedHero.useAbility();
+  if (!result.ok) toast(result.reason);
+  else toast(game.selectedHero.spec.ability.name + " activated.");
+  renderHud();
+  renderHeroSelection(game.selectedHero);
 });
 
 refs.apex.addEventListener("click", () => {
@@ -282,6 +349,7 @@ refs.reset.addEventListener("click", () => {
 
 game.on("fps", (fps) => refs.fps.textContent = Math.round(fps) + " FPS");
 game.on("selection", (tower) => renderSelection(tower));
+game.on("heroSelection", (hero) => renderHeroSelection(hero));
 game.on("towerPlaced", (tower) => {
   renderHud();
   renderRunInfo();
@@ -352,5 +420,6 @@ window.addEventListener("keydown", (event) => {
 
 initializeCampaignSelectors();
 renderPalette();
+renderHeroPalette();
 renderAchievements();
 showMenu("Choose a campaign, restore a saved run, or customize the campaign settings.");
