@@ -95,6 +95,30 @@ export class CombatSystem {
       return;
     }
 
+    if (
+      tower.type === "spike" ||
+      tower.type === "mine"
+    ) {
+      tower.cooldown.reset(
+        Math.max(0.12, attack.attackSpeed || 1)
+      );
+
+      const target = this.chooseTarget(tower);
+      const progress = target
+        ? target.progress
+        : 0.98;
+
+      this.game.trapsystem.place(
+        tower.type === "spike"
+          ? "spike"
+          : "mine",
+        tower,
+        progress
+      );
+
+      return;
+    }
+
     const target = this.chooseTarget(tower);
 
     if (!target) {
