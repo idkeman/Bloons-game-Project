@@ -6,6 +6,22 @@ import { Tower, Bloon } from "../src/entities.js";
 import { RoutePath } from "../src/path.js";
 import { createRound } from "../src/rounds.js";
 
+test("campaign contains a diverse original map roster", () => {
+  assert.ok(MAPS.length >= 16);
+  const ids = new Set(MAPS.map((map) => map.id));
+
+  assert.equal(
+    ids.size,
+    MAPS.length
+  );
+
+  for (const map of MAPS) {
+    assert.ok(map.name);
+    assert.ok(map.path.length >= 4);
+    assert.ok(map.buildZones.length >= 3);
+  }
+});
+
 test("all tower definitions expose three complete five-tier paths", () => {
   const towers = Object.values(TOWERS);
 
