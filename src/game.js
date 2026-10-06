@@ -940,6 +940,62 @@ export class Game {
     this.emit("selection", null);
   }
 
+  sellSelected() {
+    const tower = this.towers.find(
+      (item) =>
+        item.id === this.selectedId
+    );
+
+    if (!tower) {
+      this.emit("toast", {
+        text: "Select a tower to sell.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    const refund = Math.max(
+      0,
+      Math.round(
+        tower.totalSpent *
+        (
+          0.70 +
+          (this.knowledge?.sellMultiplier || 0)
+        )
+      )
+    );
+
+    if (!this.sandbox) {
+      this.cash += refund;
+    }
+
+    this.towers =
+      this.towers.filter(
+        (item) =>
+          item.id !== tower.id
+      );
+
+    this.progression.recordStats({
+      cash: refund
+    });
+
+    this.selectedId = null;
+    this.recalculateBuffs();
+    this.emit("selection", null);
+    this.emit("hud", this.hud());
+
+    this.emit("toast", {
+      text:
+        tower.name +
+        " sold for $" +
+        refund.toLocaleString() +
+        ".",
+      kind: "money"
+    });
+
+    return true;
+  }
+
   cycleSelectedTarget() {
     const unit = this.selectedUnit();
 
