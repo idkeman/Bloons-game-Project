@@ -515,6 +515,31 @@ assert.equal(
   "selling should remove exactly one tower"
 );
 
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  const type = Object.keys(
+    game.content.towers
+  )[0];
+
+  game.pendingTower = type;
+  game.buildMode = true;
+
+  const zone = game.map.buildZones[0];
+  const x =
+    (zone.x + zone.w / 2) *
+    game.width;
+  const y =
+    (zone.y + zone.h / 2) *
+    game.height;
+
+  game.placePendingTower(
+    x,
+    y
+  );
+});
+
+await page.locator("#save-btn").click();
+
 await page.locator("#menu-btn").click();
 
 await page.locator("#continue-btn").waitFor({
