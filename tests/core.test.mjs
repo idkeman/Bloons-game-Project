@@ -9,7 +9,7 @@ import { createRound } from "../src/rounds.js";
 test("all tower definitions expose three complete five-tier paths", () => {
   const towers = Object.values(TOWERS);
 
-  assert.ok(towers.length >= 18);
+  assert.ok(towers.length >= 27);
 
   for (const tower of towers) {
     assert.equal(tower.paths.length, 3);
