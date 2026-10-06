@@ -8,6 +8,7 @@ import { CombatSystem } from "./combat.js";
 import { ProgressionSystem } from "./progression.js";
 import { canPlaceAt } from "./placement.js";
 import { BossController } from "./bosses.js";
+import { TrapSystem } from "./traps.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -81,6 +82,8 @@ export class Game {
     this.rounds = new RoundController(this);
     this.combat = new CombatSystem(this);
     this.bosses = new BossController(this);
+    this.trapsystem = new TrapSystem(this);
+    this.traps = [];
 
     this.stats = {
       games: 0,
@@ -220,6 +223,7 @@ export class Game {
     }
 
     this.combat.update(delta);
+    this.trapsystem.update();
     this.bosses.update();
 
     for (const tower of this.towers) {
@@ -308,8 +312,11 @@ export class Game {
     }
 
     const baseIncome =
-      tower.type === "sniper"
-        ? incomeTier * 2
+      tower.type === "farm"
+        ? 18 * Math.max(1, incomeTier) *
+          (incomeTier >= 4 ? 1.8 : 1)
+        : tower.type === "sniper"
+          ? incomeTier * 2
         : tower.type === "boat"
           ? incomeTier * 3
           : tower.type === "sub"
@@ -320,7 +327,9 @@ export class Game {
                 ? incomeTier
                 : tower.type === "engineer"
                   ? incomeTier * 2
-                  : 0;
+                  : tower.type === "beacon"
+                    ? incomeTier
+                    : 0;
 
     const interval =
       incomeTier >= 5
@@ -491,6 +500,7 @@ export class Game {
     this.heroes = [];
     this.bloons = [];
     this.projectiles = [];
+    this.traps = [];
     this.particles = [];
     this.floaters = [];
 
@@ -1302,6 +1312,10 @@ export class Game {
       (tower) => tower.type === "village"
     );
 
+    const beacons = this.towers.filter(
+      (tower) => tower.type === "beacon"
+    );
+
     for (const village of villages) {
       const radiusMultiplier =
         village.pathLevels[0] >= 4
@@ -1343,6 +1357,44 @@ export class Game {
             other.buff.damage,
             0.15
           );
+        }
+      }
+    }
+
+    for (const beacon of beacons) {
+      const radius =
+        beacon.getAttackData().range *
+        (1 + beacon.pathLevels[0] * 0.12);
+
+      for (const other of this.towers) {
+        if (
+          other === beacon ||
+          distance(
+            beacon.x,
+            beacon.y,
+            other.x,
+            other.y
+          ) > radius
+        ) {
+          continue;
+        }
+
+        other.buff.range = Math.max(
+          other.buff.range,
+          0.12
+        );
+
+        other.buff.damage = Math.max(
+          other.buff.damage,
+          0.08 + beacon.pathLevels[1] * 0.025
+        );
+
+        if (beacon.pathLevels[0] >= 2) {
+          other.buff.detectHidden = true;
+        }
+
+        if (beacon.pathLevels[2] >= 3) {
+          other.buff.attackSpeed *= 0.90;
         }
       }
     }
@@ -2079,6 +2131,53 @@ export class Game {
         barWidth * healthFraction,
         3
       );
+    }
+  }
+
+  drawTraps(ctx) {
+    if (!this.path) {
+      return;
+    }
+
+    for (const trap of this.traps) {
+      const point = this.path.at(trap.progress);
+
+      ctx.save();
+      ctx.translate(point.x, point.y);
+
+      if (trap.type === "spike") {
+        ctx.fillStyle = "#bbc8d1";
+        ctx.strokeStyle = "#10171d";
+        ctx.lineWidth = 1;
+
+        for (let index = 0; index < 5; index += 1) {
+          const offset = (index - 2) * 5;
+
+          ctx.beginPath();
+          ctx.moveTo(offset, 5);
+          ctx.lineTo(offset + 3, -4);
+          ctx.lineTo(offset + 6, 5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      } else {
+        ctx.fillStyle = "#c86a4d";
+        ctx.strokeStyle = "#25130f";
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255,190,90,.75)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 11, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
     }
   }
 
