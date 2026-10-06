@@ -219,7 +219,15 @@ export class HeroUnit {
       y: this.y,
       level: this.level,
       xp: this.xp,
-      targetMode: this.targetMode
+      targetMode: this.targetMode,
+      cooldownRemaining:
+        this.cooldown.remaining,
+      abilityCooldownRemaining:
+        this.abilityCooldown.remaining,
+      abilityActive: this.abilityActive,
+      abilityMultiplier: this.abilityMultiplier,
+      totalPops: this.totalPops,
+      totalDamage: this.totalDamage
     };
   }
 }
