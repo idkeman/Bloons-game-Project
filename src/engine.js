@@ -591,8 +591,33 @@ export class Tower {
       const targets=[...this.game.bloons].filter(b=>!b.dead).sort((a,b)=>b.hp-a.hp).slice(0,8);
       for(const b of targets){this.game.meteor(b.x,b.y,80,180+this.level*18);}
     } else if(ability.name==='Bloom'){
-      const reward=90+this.level*18;this.game.cash+=reward;this.game.lives=Math.min(this.game.lives+3+Math.floor(this.level/3),999);
-      this.game.spawnText(this.x,this.y-34,'Bloom +
+      const reward=90+this.level*18;
+      this.game.cash+=reward;
+      this.game.lives=Math.min(this.game.lives+3+Math.floor(this.level/3),999);
+      this.game.spawnText(this.x,this.y-34,'Bloom +$'+reward,'#8bf5a4',12);
+      this.game.spawnRing(this.x,this.y,130,'#7de5a5');
+    } else if(ability.name==='Root Wall'){
+      for(const b of this.game.bloons){
+        if(!b.dead&&dist2(this,b)<250*250){
+          b.stun=Math.max(b.stun,2.5);
+          b.slow=.18;
+        }
+      }
+      this.game.spawnRing(this.x,this.y,250,'#71e69d');
+    } else if(ability.name==='Refraction'){
+      this.game.heroRefractionTimer=10;
+      this.game.heroRefractionBonus=2;
+      this.game.spawnRing(this.x,this.y,210,'#d7b7ff');
+    } else if(ability.name==='Prism Break'){
+      this.game.masteryArmorPierceTimer=12;
+      for(const b of this.game.bloons){
+        if(!b.dead&&b.armored&&dist2(this,b)<350*350){
+          b.takeDamage(55+this.level*10,this,{ignoreArmor:true});
+        }
+      }
+      this.game.spawnRing(this.x,this.y,350,'#bde7ff');
+    }
+    return true;
   }
   getAbilities(){
     const heroDef=HEROES[this.id];
