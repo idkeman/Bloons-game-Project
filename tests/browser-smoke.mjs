@@ -395,6 +395,36 @@ assert.equal(
 );
 
 
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
+  game.lose();
+});
+
+await page.locator("#end-overlay").waitFor({
+  state: "visible"
+});
+
+assert.equal(
+  await page.locator("#end-title").textContent(),
+  "Defense collapsed"
+);
+
+await page.locator("#restart-btn").click();
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.state
+  ),
+  "running"
+);
+
+assert.equal(
+  await page.locator("#end-overlay").evaluate(
+    (node) => node.classList.contains("hidden")
+  ),
+  true
+);
+
 assert.equal(
   errors.length,
   0,
