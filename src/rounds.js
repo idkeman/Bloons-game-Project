@@ -207,6 +207,32 @@ export class RoundController {
     }
   }
 
+  snapshot() {
+    return {
+      current: this.current,
+      active: this.active,
+      auto: this.auto,
+      queue: this.queue.map((entry) => ({ ...entry })),
+      spawnTimer: this.spawnTimer,
+      clearTimer: this.clearTimer,
+      seed: this.seed
+    };
+  }
+
+  restore(snapshot) {
+    if (!snapshot) {
+      return;
+    }
+
+    this.current = snapshot.current || 0;
+    this.active = Boolean(snapshot.active);
+    this.auto = Boolean(snapshot.auto);
+    this.queue = (snapshot.queue || []).map((entry) => ({ ...entry }));
+    this.spawnTimer = snapshot.spawnTimer || 0;
+    this.clearTimer = snapshot.clearTimer || 0;
+    this.seed = snapshot.seed || 7331;
+  }
+
   finish() {
     if (!this.active) {
       return;
