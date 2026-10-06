@@ -10,10 +10,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install browser test dependency
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Verify JavaScript syntax
         run: |
           node --check js/data.js
@@ -22,5 +30,13 @@ jobs:
           node --check js/engine.js
           node --check js/ui.js
           node --check tests/node-smoke.mjs
+          node --check tests/browser-smoke.mjs
+
       - name: Run simulation smoke suite
-        run: node tests/node-smoke.mjs
+        run: npm run test:smoke
+
+      - name: Start static server
+        run: python3 -m http.server 8080 --directory . > /tmp/skyfront-server.log 2>&1 &
+
+      - name: Run Chromium smoke suite
+        run: npm run test:browser
