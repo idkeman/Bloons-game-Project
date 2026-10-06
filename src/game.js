@@ -514,6 +514,11 @@ export class Game {
       Math.max(34, this.width * 0.055)
     );
 
+    this.progression =
+      new ProgressionSystem(this.save);
+    this.knowledge =
+      this.progression.knowledgeEffects();
+
     this.cash = this.sandbox
       ? 999999
       : Math.round(
@@ -552,9 +557,6 @@ export class Game {
     this.rounds = new RoundController(this);
     this.rounds.auto = this.autoRounds;
     this.bosses.reset();
-
-    this.progression = new ProgressionSystem(this.save);
-    this.knowledge = this.progression.knowledgeEffects();
 
     this.stats = {
       games: (this.save.profile().games || 0) + 1,
