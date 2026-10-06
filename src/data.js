@@ -1,4 +1,5 @@
 import { UPGRADE_CONTENT } from './upgrade-content.js';
+import { EXTRA_MAPS, EXTRA_MODES } from './expansion-content.js';
 
 export const DIFFICULTIES={
   easy:{id:'easy',name:'Easy',cashMult:1,lifeMult:1.5,bloonSpeed:.88,bloonHp:.86,rewardMult:1},
@@ -30,6 +31,10 @@ export const MAPS={
   harbor:{id:'harbor',name:'Moonlit Harbor',description:'Curved lanes around central water.',pathWidth:44,scenery:'harbor',paths:[[{x:-40,y:290},{x:150,y:290},{x:240,y:170},{x:430,y:170},{x:520,y:290},{x:680,y:290},{x:760,y:410},{x:980,y:410},{x:1080,y:290},{x:1290,y:290}]],buildZones:[{x:20,y:20,w:180,h:190},{x:280,y:15,w:180,h:105},{x:560,y:25,w:180,h:165},{x:830,y:20,w:180,h:190},{x:1080,y:35,w:180,h:170},{x:25,y:480,w:190,h:220},{x:290,y:500,w:180,h:190},{x:575,y:520,w:180,h:170},{x:850,y:520,w:190,h:180},{x:1090,y:470,w:170,h:230}]},
   highlands:{id:'highlands',name:'Sky Highlands',description:'A long elevated circuit with twin lanes.',pathWidth:46,scenery:'highlands',paths:[[{x:-40,y:300},{x:170,y:300},{x:260,y:130},{x:470,y:130},{x:560,y:300},{x:750,y:300},{x:850,y:130},{x:1050,y:130},{x:1160,y:300},{x:1290,y:300}],[{x:-40,y:650},{x:200,y:650},{x:310,y:520},{x:500,y:520},{x:590,y:650},{x:790,y:650},{x:890,y:520},{x:1060,y:520},{x:1160,y:650},{x:1290,y:650}]],buildZones:[{x:10,y:30,w:180,h:190},{x:290,y:20,w:190,h:90},{x:620,y:25,w:190,h:180},{x:930,y:25,w:250,h:95},{x:30,y:400,w:190,h:100},{x:300,y:390,w:190,h:100},{x:620,y:400,w:190,h:100},{x:930,y:390,w:230,h:110},{x:10,y:720,w:200,h:100},{x:350,y:720,w:220,h:100},{x:780,y:720,w:230,h:100}]}
 };
+
+Object.assign(MAPS, EXTRA_MAPS);
+
+Object.assign(MODES, EXTRA_MODES);
 
 const U=(name,desc,cost,effects={})=>({name,desc,cost,effects});
 const PATH_NAMES=[['Sharpened','Refined','Advanced','Master','Ultimate'],['Twin','Rapid','Focused','Overdrive','Hyper'],['Long','Precision','Burst','Storm','Apocalypse']];
