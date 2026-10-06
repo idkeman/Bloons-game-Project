@@ -1,4 +1,5 @@
 import { TOWERS, BLOONS, HEROES, PARAGONS, DIFFICULTIES, MODES, MAPS, ROUND_SPECIALS } from './data.js';
+import { fireTowerBehavior, applyTowerBehaviorUpgrades } from './tower-behaviors.js';
 
 export const GameState = {
   MENU: 'menu',
@@ -316,6 +317,8 @@ export class Tower {
     this.activeBuff={damage:0,pierce:0,speed:0,range:0};
     this.isSupport=!!def.isSupport;
     this.isSpike=!!def.isSpike;
+    applyTowerBehaviorUpgrades(this);
+    this.recalculate();
   }
   pathTier(path){return this.levels[path]||0;}
   primaryPath(){return this.levels.indexOf(Math.max(...this.levels));}
@@ -353,6 +356,7 @@ export class Tower {
     this.applyUpgradeEffects(upgrade.effects);
     this.game.spawnText(this.x,this.y-38,`T${path+1}-${tier+1}`,'#8fe9ff',11);
     this.game.toast(`${this.def.name}: ${upgrade.name}`,'good');
+    applyTowerBehaviorUpgrades(this);
     this.recalculate();
     return true;
   }
@@ -376,7 +380,7 @@ export class Tower {
     this.effectiveRate=this.attackRateOverride||this.def.attackRate;
     this.effectiveCount=this.extraCount||1;
     this.effectiveSpeed=this.def.projectileSpeed+(this.extraSpeed||0);
-    this.isStealth=!!this.stealth||this.game.hasGlobalStealth;
+    this.isStealth=!!this.stealth||this.game.hasGlobalStealth||!!this.globalStealth;
   }
   sellValue(){
     const multiplier=.7+(this.sellBonus||0);
@@ -478,6 +482,11 @@ export class Tower {
     return true;
   }
   fireAt(target,isTurret=false){
+    if(fireTowerBehavior(this,target)){
+      this.angle=Math.atan2(target.y-this.y,target.x-this.x);
+      this.lastTarget=target;
+      return;
+    }
     const count=Math.max(1,this.effectiveCount||1);
     const damage=Math.max(1,Math.round(this.effectiveDamage+this.localDamageBonus+this.game.globalDamageBonus));
     const pierce=Math.max(1,Math.round(this.effectivePierce+this.localPierceBonus+this.game.globalPierceBonus));
@@ -782,6 +791,7 @@ export class GameEngine {
     }
   }
   randomPathIndex(){return Math.floor(Math.random()*this.paths.length);}
+  createProjectile(options={}){return new Projectile(this,options);}
   resolveProjectileHit(projectile,bloon){
     if(bloon.dead)return;
     let damage=projectile.damage;
