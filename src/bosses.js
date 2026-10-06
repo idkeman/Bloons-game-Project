@@ -162,10 +162,13 @@ export class BossController {
         boss.health /
         Math.max(1, boss.maxHealth);
 
-      const phaseIndex = phases.findIndex(
-        (phase) =>
-          healthFraction <= phase.threshold
-      );
+      let phaseIndex = -1;
+
+      for (let index = 0; index < phases.length; index += 1) {
+        if (healthFraction <= phases[index].threshold) {
+          phaseIndex = index;
+        }
+      }
 
       if (phaseIndex < 0) {
         boss.bossPhase = 0;
@@ -175,21 +178,22 @@ export class BossController {
       const previous =
         this.seenPhases.get(boss.id) ?? -1;
 
-      if (phaseIndex > previous) {
-        const phase =
-          phases[phaseIndex];
+      for (
+        let index = previous + 1;
+        index <= phaseIndex;
+        index += 1
+      ) {
+        const phase = phases[index];
 
         phase.onEnter(
           this.game,
           boss
         );
 
-        boss.bossPhase =
-          phaseIndex + 1;
-
+        boss.bossPhase = index + 1;
         this.seenPhases.set(
           boss.id,
-          phaseIndex
+          index
         );
       }
     }
