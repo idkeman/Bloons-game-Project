@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131a">
+  <meta name="description" content="Skyfront Dominion — an original, systems-heavy browser tower defense game.">
+  <title>Skyfront Dominion</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main id="app" class="app-shell">
+    <section class="game-stage">
+      <canvas id="gameCanvas" aria-label="Game battlefield"></canvas>
+      <div id="stageOverlay" class="stage-overlay">
+        <div id="menuCard" class="menu-card">
+          <div class="eyebrow">SKYFRONT DOMINION</div>
+          <h1>Skyfront Dominion</h1>
+          <p>Command a modular defense grid against escalating breach waves.</p>
+          <div class="menu-actions">
+            <button id="startGameButton" class="primary-button">Start Campaign</button>
+            <button id="continueGameButton" class="button">Continue</button>
+            <button id="challengeButton" class="button">Challenge Setup</button>
+          </div>
+          <div id="menuNotice" class="menu-notice"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="control-panel" aria-label="Game controls">
+      <header class="hud">
+        <div class="hud-main">
+          <div class="hud-stat"><span class="hud-label">Credits</span><strong id="cashValue">$650</strong></div>
+          <div class="hud-stat"><span class="hud-label">Integrity</span><strong id="livesValue">100</strong></div>
+          <div class="hud-stat"><span class="hud-label">Wave</span><strong id="waveValue">0 / 150</strong></div>
+          <div class="hud-stat"><span class="hud-label">Core XP</span><strong id="xpValue">0</strong></div>
+        </div>
+        <div class="hud-row">
+          <span id="speedLabel">1×</span>
+          <span id="modeLabel">Build</span>
+          <span id="fpsLabel">— FPS</span>
+        </div>
+      </header>
+
+      <section class="panel-section toolbar">
+        <button id="startWaveButton" class="primary-button compact">Deploy Wave</button>
+        <button id="pauseButton" class="button compact">Pause</button>
+        <button id="speedButton" class="button compact">Speed 1×</button>
+        <button id="fastForwardButton" class="button compact">Skip</button>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <h2>Towers</h2>
+          <span id="towerFilterLabel">All</span>
+        </div>
+        <div id="towerPalette" class="tower-palette"></div>
+      </section>
+
+      <section id="selectedTowerPanel" class="panel-section selected-panel hidden">
+        <div class="section-heading">
+          <h2 id="selectedTowerName">No tower selected</h2>
+          <button id="closeSelectionButton" class="icon-button" title="Close">×</button>
+        </div>
+        <div id="selectedTowerStats" class="selected-stats"></div>
+        <div class="target-grid">
+          <button data-target="first" class="target-button">First</button>
+          <button data-target="last" class="target-button">Last</button>
+          <button data-target="strongest" class="target-button">Strong</button>
+          <button data-target="weakest" class="target-button">Weak</button>
+          <button data-target="close" class="target-button">Close</button>
+          <button data-target="far" class="target-button">Far</button>
+        </div>
+        <div class="upgrade-columns">
+          <div><div class="path-title">Path I</div><div id="path0" class="upgrade-path"></div></div>
+          <div><div class="path-title">Path II</div><div id="path1" class="upgrade-path"></div></div>
+          <div><div class="path-title">Path III</div><div id="path2" class="upgrade-path"></div></div>
+        </div>
+        <div class="selection-actions">
+          <button id="sellButton" class="danger-button">Sell</button>
+          <button id="abilityButton" class="ability-button hidden">Ability</button>
+          <button id="apexButton" class="accent-button hidden">Create Apex</button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <h2>Build Mode</h2>
+        </div>
+        <div class="build-grid">
+          <button id="buildModeButton" class="button">Build Mode: OFF</button>
+          <button id="multiPlaceButton" class="button">Multi-place: OFF</button>
+          <button id="rangeButton" class="button">Show Ranges</button>
+          <button id="deleteModeButton" class="button">Delete Mode</button>
+        </div>
+      </section>
+
+      <section class="panel-section compact-section">
+        <details>
+          <summary>Run Information</summary>
+          <div id="runInfo" class="info-text"></div>
+        </details>
+        <details>
+          <summary>Achievements</summary>
+          <div id="achievementList" class="achievement-list"></div>
+        </details>
+        <details>
+          <summary>Controls</summary>
+          <div class="info-text">
+            <p><kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> select upgrade path.</p>
+            <p><kbd>Space</kbd> deploy wave. <kbd>P</kbd> pause. <kbd>Q</kbd>/<kbd>E</kbd> speed.</p>
+            <p><kbd>Esc</kbd> closes selection. <kbd>Shift</kbd> toggles multi-place.</p>
+            <p>Click a tower to inspect it. Drag while holding the tower preview to place.</p>
+          </div>
+        </details>
+      </section>
+
+      <footer class="footer">
+        <span>Original game architecture. No external runtime dependencies.</span>
+        <button id="resetSaveButton" class="link-button">Reset Save</button>
+      </footer>
+    </aside>
+  </main>
+
+  <script type="module" src="js/data.js"></script>
+  <script type="module" src="js/save.js"></script>
+  <script type="module" src="js/audio.js"></script>
+  <script type="module" src="js/engine.js"></script>
+  <script type="module" src="js/ui.js"></script>
+</body>
+</html>
