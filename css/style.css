@@ -396,3 +396,37 @@ kbd {
   .tower-palette { grid-template-columns: 1fr 1fr; }
   .menu-card { padding: 24px; }
 }
+
+.setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.setup-grid label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.setup-grid select,
+.setup-grid input {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.setup-grid select:focus,
+.setup-grid input:focus {
+  border-color: var(--accent);
+}
