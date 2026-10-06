@@ -1733,10 +1733,13 @@ export class Game {
       })
     );
 
-    this.rounds.active = Boolean(snapshot.roundActive);
-    this.rounds.queue = [];
-    this.rounds.spawnTimer = 0;
-    this.rounds.clearTimer = 0;
+    this.rounds.restore(
+      snapshot.roundController || {
+        current: snapshot.round || 0,
+        active: Boolean(snapshot.roundActive),
+        auto: Boolean(snapshot.autoRounds)
+      }
+    );
 
     this.emit("selection", null);
     this.recalculateBuffs();
@@ -1759,6 +1762,7 @@ export class Game {
       lives: this.lives,
       round: this.rounds.current,
       roundActive: this.rounds.active,
+      roundController: this.rounds.snapshot(),
       autoRounds: this.autoRounds,
       speed: this.speed,
       towers: this.towers.map(
