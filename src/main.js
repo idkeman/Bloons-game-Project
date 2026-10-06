@@ -14,6 +14,15 @@ const game = new Game({
 
 ui.bind({
   play: () => ui.showMapScreen(),
+  continue: () => {
+    const snapshot = save.loadLastGame();
+    if (snapshot) {
+      game.resume(snapshot);
+      ui.showGame();
+    } else {
+      ui.showMapScreen();
+    }
+  },
   sandbox: () => ui.showMapScreen({ sandbox: true }),
   progress: () => ui.showProgress(save.profile()),
   glossary: () => ui.showManual(GLOSSARY),
@@ -65,6 +74,7 @@ window.addEventListener("resize", () => game.resize());
 
 ui.showMenu();
 ui.renderMapList(MAPS);
+ui.setContinueAvailable(Boolean(save.loadLastGame()));
 ui.setProfile(save.profile());
 
 game.startLoop();
