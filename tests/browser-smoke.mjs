@@ -79,6 +79,10 @@ await page.goto(url, {
   waitUntil: "networkidle"
 });
 
+await page.evaluate(() => {
+  window.monkeyFrontier.game.debugEnabled = true;
+});
+
 await page.locator("#play-btn").click();
 
 await page.locator(".map-card").first().waitFor();
