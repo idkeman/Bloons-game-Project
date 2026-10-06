@@ -277,6 +277,73 @@ await page.locator("#ability-btn").click();
 
 await page.evaluate(() => {
   const game = window.monkeyFrontier.game;
+
+  game.start("meadow", {
+    sandbox: true
+  });
+
+  const zones = game.map.buildZones;
+  game.pendingTower = "sharpshooter";
+  game.buildMode = true;
+
+  for (let index = 0; index < 3; index += 1) {
+    const zone = zones[index];
+    const x =
+      (zone.x + zone.w / 2) *
+      game.width;
+    const y =
+      (zone.y + zone.h / 2) *
+      game.height;
+
+    game.placePendingTower(
+      x,
+      y
+    );
+  }
+
+  const paths = [0, 1, 2];
+
+  game.towers.forEach(
+    (tower, index) => {
+      for (let tier = 1; tier <= 5; tier += 1) {
+        game.buyUpgrade(
+          tower.id,
+          paths[index],
+          tier
+        );
+      }
+    }
+  );
+
+  game.selectEntity(
+    game.towers[0].id
+  );
+});
+
+await page.locator("#paragon-btn").waitFor({
+  state: "visible"
+});
+
+await page.locator("#paragon-btn").click();
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.towers.length
+  ),
+  1,
+  "Paragon creation should consume exactly three Tier 5 towers"
+);
+
+assert.equal(
+  await page.evaluate(
+    () => window.monkeyFrontier.game.towers[0].ascended
+  ),
+  true,
+  "resulting Paragon should be marked Ascended"
+);
+
+await page.evaluate(() => {
+  const game = window.monkeyFrontier.game;
   game.start("rivergate", { sandbox: true });
 });
 
