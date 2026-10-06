@@ -1,5 +1,6 @@
 import { TOWERS, BLOONS, HEROES, PARAGONS, DIFFICULTIES, MODES, MAPS, ROUND_SPECIALS } from './data.js';
 import { fireTowerBehavior, applyTowerBehaviorUpgrades } from './tower-behaviors.js';
+import { MasteryProfile } from './mastery.js';
 
 export const GameState = {
   MENU: 'menu',
@@ -662,6 +663,7 @@ export class GameEngine {
     this.camera={x:0,y:0};
     this.paths=[];this.map=null;this.difficulty=DIFFICULTIES.normal;this.mode=MODES.standard;
     this.towers=[];this.bloons=[];this.projectiles=[];this.particles=[];this.texts=[];this.effects=[];
+    this.mastery=MasteryProfile.load();this.masteryEffects=this.mastery.getEffects();
     this.cash=650;this.lives=100;this.eco=100;this.round=0;this.roundTimer=0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.globalTargetMode=null;this.globalTargetTimer=0;this.selected=null;this.pendingTower=null;this.selectedHasStealth=false;this.gameTime=0;this.speedMultiplier=1;this.lastFrame=performance.now()/1000;this.hero=null;this.heroId=null;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.soundEnabled=false;
     this.screenShake=0;
     this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(this.canvas.parentElement||this.canvas);
@@ -675,7 +677,8 @@ export class GameEngine {
     this.paths=this.map.paths.map(p=>new PathCurve(p));
     this.worldWidth=1280;this.worldHeight=820;
     this.towers=[];this.bloons=[];this.projectiles=[];this.particles=[];this.texts=[];this.effects=[];
-    this.cash=Math.round(this.mode.startCash*this.difficulty.cashMult);this.lives=Math.max(1,Math.round(this.mode.startLives*this.difficulty.lifeMult));this.eco=100;this.round=this.mode.id==='freeplay'?79:0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.selected=null;this.pendingTower=null;this.gameTime=0;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.state=GameState.PLAYING;this.updateCamera();
+    this.masteryEffects=this.mastery.getEffects();
+    this.cash=Math.round((this.mode.startCash+this.masteryEffects.startingCash)*this.difficulty.cashMult);this.lives=Math.max(1,Math.round(this.mode.startLives*this.difficulty.lifeMult));this.eco=100;this.round=this.mode.id==='freeplay'?79:0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.selected=null;this.pendingTower=null;this.gameTime=0;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.state=GameState.PLAYING;this.updateCamera();
     this.save();
   }
   updateCamera(){
@@ -715,7 +718,8 @@ export class GameEngine {
     this.hasGlobalStealth=this.towers.some(t=>!t.sold&&t.globalStealth>0)||false;
     this.globalSpeedBonus=Math.min(.55,this.towers.filter(t=>!t.sold&&t.globalSpeed).reduce((a,t)=>a+(t.globalSpeed||0),0));
     this.globalDamageBonus=this.towers.filter(t=>!t.sold&&t.globalDamage).reduce((a,t)=>a+(t.globalDamage||0),0);
-    this.globalPierceBonus=this.towers.filter(t=>!t.sold&&t.globalPierce).reduce((a,t)=>a+(t.globalPierce||0),0);
+    this.globalDamageBonus+=this.masteryEffects?.armorDamage||0;
+    this.globalPierceBonus=this.towers.filter(t=>!t.sold&&t.globalPierce).reduce((a,t)=>a+(t.globalPierce||0),0)+ (this.masteryEffects?.pierce||0);
     for(const t of this.towers){
       t.buffSpeed=0;t.buffDamage=0;t.buffPierce=0;t.buffRange=0;
       if(t.sold)continue;
@@ -777,7 +781,7 @@ export class GameEngine {
   finishRound(){
     if(!this.roundRunning)return;
     this.roundRunning=false;this.roundTimer=this.round<100?1.6:.8;
-    const modeIncome=this.mode.id==='deflation'?0:(100+this.eco*.5);
+    const modeIncome=this.mode.id==='deflation'?0:(100+this.eco*.5)*(1+(this.masteryEffects?.income||0));
     let income=Math.floor(modeIncome*this.difficulty.cashMult*(this.mode.id==='halfCash'?.5:1));
     for(const tower of this.towers){if(tower.sold)continue;if(tower.def.isSupport&&tower.income)income+=tower.income*.3;}
     income=Math.max(0,Math.floor(income));this.cash+=income;this.totalCashEarned+=income;
@@ -814,15 +818,17 @@ export class GameEngine {
   }
   onBloonPopped(bloon){
     const reward=Math.max(1,Math.floor((bloon.reward/Math.max(1,this.difficulty.bloonHp)) * (this.mode.id==='halfCash'?.5:1)));
-    this.cash+=reward;this.totalCashEarned+=reward;
+    const boostedReward=reward*(1+(this.masteryEffects?.popCash||0));
+    this.cash+=boostedReward;this.totalCashEarned+=boostedReward;
     if(bloon.boss)this.screenShake=1;
-    if(this.hero)this.heroXp+=Math.max(1,bloon.reward*.1);
+    if(this.hero)this.heroXp+=Math.max(1,bloon.reward*.1)*(1+(this.masteryEffects?.heroXp||0));
     this.spawnText(bloon.x,bloon.y+20,`+$${reward}`,'#ffe777',10);
-    if(this.hero){const before=this.hero.level;this.hero.heroGainXp(Math.max(1,bloon.reward*.1));if(this.hero.level>before)this.toast(`${this.hero.def.name} reached level ${this.hero.level}`,'good');}
+    if(this.hero){const before=this.hero.level;this.hero.heroGainXp(Math.max(1,bloon.reward*.1)*(1+(this.masteryEffects?.heroXp||0)));if(this.hero.level>before)this.toast(`${this.hero.def.name} reached level ${this.hero.level}`,'good');}
   }
   onParagonCreated(tower){this.tier5Counts[tower.id]=(this.tier5Counts[tower.id]||0)+1;}
   getUpgradeCostMultiplier(){
     let m=1;
+    m*=Math.max(.75,1-(this.masteryEffects?.upgradeCost||0));
     for(const t of this.towers){if(!t.sold&&(t.costReduction||0)>0)m*=Math.max(.7,1-(t.costReduction||0));}
     if(this.mode.id==='deflation')m*=1.12;
     return m;
