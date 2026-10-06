@@ -2,10 +2,12 @@ import { Game, GAME_STATES } from "./game.js";
 import { SaveManager } from "./save.js";
 import { TOWERS, HEROES, GLOSSARY, MAPS, DIFFICULTIES } from "./data.js";
 import { UIController } from "./ui.js";
+import { AudioSystem } from "./audio.js";
 
 const canvas = document.querySelector("#game-canvas");
 const save = new SaveManager("monkey-frontier-save-v1");
 const ui = new UIController();
+const audio = new AudioSystem();
 const game = new Game({
   canvas,
   save,
@@ -43,8 +45,18 @@ ui.bind({
   toggleAuto: () => game.toggleAutoRounds(),
   cycleSpeed: () => game.cycleSpeed(),
   togglePause: () => game.togglePause(),
-  save: () => { save.persist(game.snapshot()); ui.toast("Game saved."); },
-  menu: () => { save.persist(game.snapshot()); game.stop(); ui.showMenu(); },
+  save: () => {
+    audio.unlock();
+    save.persist(game.snapshot());
+    ui.toast("Game saved.");
+  },
+  menu: () => {
+    save.persist(game.snapshot());
+    game.stop();
+    ui.setContinueAvailable(true);
+    ui.showGameEnd(false);
+    ui.showMenu();
+  },
   selectTower: id => game.selectBuildTower(id),
   selectEntity: id => game.selectEntity(id),
   cycleTarget: () => game.cycleSelectedTarget(),
@@ -66,6 +78,25 @@ game.on("toast", message => ui.toast(message.text, message.kind));
 game.on("progress", profile => ui.updateProgress(profile));
 game.on("mapList", maps => ui.renderMapList(maps));
 game.on("manual", glossary => ui.showManual(glossary));
+
+game.on("toast", payload => {
+  const kind = payload?.kind || "info";
+
+  audio.event(
+    kind === "upgrade"
+      ? "upgrade"
+      : kind === "money"
+        ? "money"
+        : kind === "danger"
+          ? "danger"
+          : kind === "ability"
+            ? "ability"
+            : "click"
+  );
+});
+
+game.on("roundStart", () => audio.roundStart());
+game.on("roundEnd", () => audio.roundEnd());
 game.on("frame", frame => {
   if (frame.resize) game.resize();
 });
