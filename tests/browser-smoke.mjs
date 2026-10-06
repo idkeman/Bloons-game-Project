@@ -50,6 +50,17 @@ assert.match(await page.locator("#selectedTowerStats").textContent(), /Damage/);
 await page.locator('[data-target="strongest"]').click();
 assert.match(await page.locator(".target-button.active").textContent(), /Strong/);
 
+const ability = page.locator("#abilityButton");
+assert.equal(await ability.isVisible(), true);
+assert.equal(await ability.isEnabled(), true);
+await ability.click();
+await page.waitForTimeout(80);
+assert.match(await ability.textContent(), /\(/);
+assert.equal(await page.evaluate(() => {
+  const raw = localStorage.getItem("skyfront-dominion-save-v1");
+  return Boolean(raw && JSON.parse(raw).currentRun);
+}), true);
+
 await page.locator("#startWaveButton").click();
 await page.waitForTimeout(300);
 assert.equal(await page.locator("#waveValue").textContent(), "1 / 150");
@@ -69,6 +80,12 @@ assert.match(await page.locator("#rangeButton").textContent(), /Ranges: ON/);
 
 await page.locator("#closeSelectionButton").click();
 assert.equal(await page.locator("#selectedTowerPanel").isVisible(), false);
+
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(150);
+await page.locator("#continueGameButton").click();
+await page.waitForTimeout(150);
+assert.equal(await page.locator("#stageOverlay").isVisible(), false);
 
 assert.equal(errors.length, 0, errors.join("\n"));
 await browser.close();
