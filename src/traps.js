@@ -1,6 +1,15 @@
 import { clamp, distance, IdFactory } from "./math.js";
 
 export class TrapField {
+  static fromSnapshot(snapshot) {
+    const trap = new TrapField(snapshot);
+    trap.hitIds = new Set(snapshot.hitIds || []);
+    trap.alive = snapshot.alive !== false;
+    trap.triggerRadius =
+      snapshot.triggerRadius || 0.014;
+    return trap;
+  }
+
   constructor({
     id,
     type,
