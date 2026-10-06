@@ -5,7 +5,8 @@ export class UIController {
       map: document.querySelector("#map-screen"),
       game: document.querySelector("#game-screen"),
       progress: document.querySelector("#progress-screen"),
-      manual: document.querySelector("#manual-screen")
+      manual: document.querySelector("#manual-screen"),
+      knowledge: document.querySelector("#knowledge-screen")
     };
 
     this.nodes = {
@@ -29,6 +30,8 @@ export class UIController {
       startRoundButton: document.querySelector("#start-round-btn"),
       progressContent: document.querySelector("#progress-content"),
       manualContent: document.querySelector("#manual-content"),
+      knowledgeContent: document.querySelector("#knowledge-content"),
+      knowledgeCredits: document.querySelector("#knowledge-credits"),
       toastStack: document.querySelector("#toast-stack"),
       profileStrip: document.querySelector("#profile-strip"),
       buildButton: document.querySelector("#build-mode-btn"),
@@ -50,6 +53,7 @@ export class UIController {
 
     document.querySelector("#map-back-btn").onclick = actions.mapBack;
     document.querySelector("#progress-back-btn").onclick = actions.progressBack;
+    document.querySelector("#knowledge-back-btn").onclick = actions.knowledgeBack;
     document.querySelector("#manual-back-btn").onclick = actions.manualBack;
 
     this.nodes.startRoundButton.onclick = actions.startRound;
@@ -122,6 +126,11 @@ export class UIController {
   showManual(glossary) {
     this.renderManual(glossary);
     this.showScreen("manual");
+  }
+
+  showKnowledge(nodes, credits) {
+    this.renderKnowledge(nodes, credits);
+    this.showScreen("knowledge");
   }
 
   setProfile(profile) {
@@ -609,8 +618,21 @@ export class UIController {
     }
   }
 
+
+  set buyKnowledgeCallback(value) {
+    this._buyKnowledgeCallback = value;
+  }
+
+  get buyKnowledgeCallback() {
+    return this._buyKnowledgeCallback;
+  }
+
   updateProgress(profile) {
     this.renderProgress(profile);
+  }
+
+  updateKnowledge(nodes, credits) {
+    this.renderKnowledge(nodes, credits);
   }
 
   toast(message) {
@@ -623,3 +645,85 @@ export class UIController {
     window.setTimeout(() => item.remove(), 2200);
   }
 }
+
+
+  renderKnowledge(nodes, credits) {
+    this.nodes.knowledgeCredits.textContent =
+      "Knowledge credits: " + Number(credits || 0).toLocaleString();
+
+    this.nodes.knowledgeContent.replaceChildren();
+
+    const grid = document.createElement("div");
+    grid.className = "knowledge-grid";
+
+    const categories = new Map();
+
+    for (const node of nodes) {
+      if (!categories.has(node.category)) {
+        categories.set(node.category, []);
+      }
+      categories.get(node.category).push(node);
+    }
+
+    for (const [category, categoryNodes] of categories) {
+      const section = document.createElement("section");
+      section.className = "knowledge-category";
+
+      const title = document.createElement("h3");
+      title.textContent = category.toUpperCase();
+      section.appendChild(title);
+
+      for (const node of categoryNodes) {
+        const card = document.createElement("article");
+        card.className =
+          "knowledge-node" +
+          (node.purchased ? " purchased" : "");
+
+        const heading = document.createElement("strong");
+        heading.textContent = node.name;
+
+        const description = document.createElement("p");
+        description.textContent = node.description;
+
+        const footer = document.createElement("div");
+        footer.className = "knowledge-footer";
+
+        const cost = document.createElement("span");
+        cost.textContent =
+          node.purchased
+            ? "OWNED"
+            : node.cost + " credits";
+
+        const button = document.createElement("button");
+        button.textContent =
+          node.purchased
+            ? "OWNED"
+            : node.available && node.affordable
+              ? "RESEARCH"
+              : node.available
+                ? "LOCKED: CREDITS"
+                : "LOCKED";
+
+        button.disabled =
+          node.purchased ||
+          !node.available ||
+          !node.affordable;
+
+        button.onclick = () => {
+          if (this.buyKnowledgeCallback) {
+            this.buyKnowledgeCallback(
+              node.id
+            );
+          }
+        };
+
+        footer.append(cost, button);
+        card.append(heading, description, footer);
+        section.appendChild(card);
+      }
+
+      grid.appendChild(section);
+    }
+
+    this.nodes.knowledgeContent.appendChild(grid);
+  }
