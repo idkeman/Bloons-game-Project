@@ -5,6 +5,7 @@ import { Bloon, Projectile, Tower } from "./entities.js";
 import { HeroUnit } from "./hero.js";
 import { RoundController } from "./rounds.js";
 import { CombatSystem } from "./combat.js";
+import { ProgressionSystem } from "./progression.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -40,6 +41,7 @@ export class Game {
     this.ctx = canvas.getContext("2d");
     this.save = save;
     this.content = content;
+    this.progression = new ProgressionSystem(save);
 
     this.events = new EventBus();
     this.ids = new IdFactory("entity");
@@ -228,6 +230,15 @@ export class Game {
     if (this.lives <= 0 && this.state === GAME_STATES.RUNNING) {
       this.lose();
     }
+
+    if (
+      this.rounds.current >= 100 &&
+      !this.rounds.active &&
+      this.bloons.length === 0 &&
+      this.state === GAME_STATES.RUNNING
+    ) {
+      this.win();
+    }
   }
 
   resolveBloonDeaths() {
@@ -263,6 +274,11 @@ export class Game {
       this.addCash(reward, "pop");
       this.stats.roundPops += 1;
       this.stats.lifetimePops += 1;
+
+      this.progression.recordStats({
+        pops: 1,
+        cash: reward
+      });
 
       this.emit("toast", {
         text: "+" + reward,
@@ -334,6 +350,10 @@ export class Game {
 
     this.stats.damage += damage;
 
+    this.progression.recordStats({
+      damage
+    });
+
     const owner = this.towers.find(
       (tower) => tower.id === ownerId
     );
@@ -358,6 +378,21 @@ export class Game {
 
       if (destroyed) {
         hero.totalPops += 1;
+      }
+
+      hero.addXp(
+        Math.max(
+          1,
+          Math.floor(damage / 3) +
+          (destroyed ? 4 : 0)
+        )
+      );
+
+      if (destroyed) {
+        this.progression.awardXp(
+          2,
+          "hero-pop"
+        );
       }
     }
   }
@@ -397,7 +432,9 @@ export class Game {
       progress: 0,
       healthMultiplier:
         this.difficulty.health * roundScale,
-      fortified: options.fortified
+      fortified: options.fortified,
+      camo: options.camo,
+      regrow: options.regrow
     });
 
     this.bloons.push(bloon);
@@ -461,6 +498,8 @@ export class Game {
     this.rounds = new RoundController(this);
     this.rounds.auto = false;
 
+    this.progression = new ProgressionSystem(this.save);
+
     this.stats = {
       games: (this.save.profile().games || 0) + 1,
       wins: this.save.profile().wins || 0,
@@ -476,12 +515,19 @@ export class Game {
     this.emit("state", this.state);
     this.emit("mapList", MAPS);
     this.emit("towerMenu", Object.values(TOWERS));
+    this.emit("progress", this.progression.snapshot());
     this.emit("selection", null);
     this.emit("hud", this.hud());
     this.emit("toast", {
       text: this.map.name + " ready.",
       kind: "info"
     });
+
+    this.progression.recordRun(
+      this.map.id,
+      0,
+      false
+    );
 
     this.unlockStarterProgress();
 
@@ -503,6 +549,12 @@ export class Game {
   }
 
   stop() {
+    this.progression.recordStats({
+      pops: this.stats.roundPops,
+      cash: this.stats.roundCash
+    });
+    this.progression.persist();
+
     this.state = GAME_STATES.MENU;
     this.towers = [];
     this.heroes = [];
@@ -550,6 +602,47 @@ export class Game {
     const index = SPEEDS.indexOf(this.speed);
     this.speed = SPEEDS[(index + 1) % SPEEDS.length];
     this.emit("hud", this.hud());
+  }
+
+  win() {
+    if (this.state !== GAME_STATES.RUNNING) {
+      return;
+    }
+
+    this.state = GAME_STATES.WON;
+    this.stats.wins += 1;
+
+    if (this.map) {
+      this.progression.recordRun(
+        this.map.id,
+        this.rounds.current,
+        true
+      );
+    }
+
+    this.emit("state", this.state);
+    this.emit("toast", {
+      text: "Round 100 complete.",
+      kind: "ability"
+    });
+  }
+
+  lose() {
+    if (this.state !== GAME_STATES.RUNNING) {
+      return;
+    }
+
+    this.state = GAME_STATES.LOST;
+
+    if (this.map) {
+      this.progression.recordRun(
+        this.map.id,
+        this.rounds.current,
+        false
+      );
+    }
+
+    this.emit("state", this.state);
   }
 
   togglePause() {
@@ -798,6 +891,22 @@ export class Game {
   clearSelection() {
     this.selectedId = null;
     this.emit("selection", null);
+  }
+
+  cycleSelectedTarget() {
+    const unit = this.selectedUnit();
+
+    if (!unit) {
+      return null;
+    }
+
+    if (typeof unit.cycleTarget === "function") {
+      const mode = unit.cycleTarget();
+      this.emitSelectionIfNeeded(unit.id);
+      return mode;
+    }
+
+    return null;
   }
 
   selectEntityAt(x, y) {
@@ -1411,6 +1520,57 @@ export class Game {
     }
 
     return null;
+  }
+
+  resume(snapshot) {
+    if (!snapshot?.mapId) {
+      return false;
+    }
+
+    this.start(snapshot.mapId, {
+      sandbox: Boolean(snapshot.sandbox),
+      difficulty: snapshot.difficultyId || "normal"
+    });
+
+    this.cash = snapshot.cash;
+    this.lives = snapshot.lives;
+    this.rounds.current = snapshot.round || 0;
+    this.autoRounds = Boolean(snapshot.autoRounds);
+    this.rounds.auto = this.autoRounds;
+    this.speed = snapshot.speed || 1;
+
+    this.towers = (snapshot.towers || []).map((saved) => {
+      const config = TOWERS[saved.type];
+
+      if (!config) {
+        return null;
+      }
+
+      const tower = new Tower({
+        id: saved.id,
+        type: saved.type,
+        x: saved.x,
+        y: saved.y,
+        config
+      });
+
+      tower.pathLevels = [...saved.pathLevels];
+      tower.targetMode = saved.targetMode || "first";
+      tower.totalSpent = saved.totalSpent || config.cost;
+      tower.totalPops = saved.totalPops || 0;
+      tower.totalDamage = saved.totalDamage || 0;
+      tower.totalCash = saved.totalCash || 0;
+      tower.ascended = Boolean(saved.ascended);
+      tower.ascensionDegree = saved.ascensionDegree || 0;
+
+      return tower;
+    }).filter(Boolean);
+
+    this.emit("selection", null);
+    this.recalculateBuffs();
+    this.emit("hud", this.hud());
+    this.emit("towerMenu", Object.values(TOWERS));
+    return true;
   }
 
   snapshot() {
