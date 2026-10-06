@@ -103,12 +103,12 @@ export class Bloon {
       return { damage: 0, destroyed: false, blocked: "hidden" };
     }
 
-    if (this.data.immune?.includes(damageType)) {
-      return { damage: 0, destroyed: false, blocked: damageType };
+    if (this.type === "metal" && damageType === "physical" && !canBreakArmor) {
+      return { damage: 0, destroyed: false, blocked: "physical" };
     }
 
-    if (this.type === "metal" && damageType === "physical" && !canBreakArmor) {
-      return { damage: 0, destroyed: false, blocked: "armor" };
+    if (this.data.immune?.includes(damageType)) {
+      return { damage: 0, destroyed: false, blocked: damageType };
     }
 
     const fortifiedMultiplier = this.fortified ? 0.88 : 1;
