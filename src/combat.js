@@ -9,54 +9,70 @@ export class CombatSystem {
   }
 
   chooseTarget(tower) {
-    const attack = applyTowerRule(
-      tower.getAttackData(),
-      tower.type,
-      this.chooseTarget(tower)
-    );
+    const attack = tower.getAttackData();
 
     const candidates = this.game.bloons.filter((bloon) => {
       if (!bloon.alive) {
         return false;
       }
 
-      const p = bloon.position;
-      return distance(tower.x, tower.y, p.x, p.y) <= attack.range;
+      const point = bloon.position;
+
+      return (
+        distance(
+          tower.x,
+          tower.y,
+          point.x,
+          point.y
+        ) <= attack.range
+      );
     });
 
     if (!candidates.length) {
       return null;
     }
 
-    if (tower.targetMode === "last") {
-      return candidates.slice().sort((a, b) => a.progress - b.progress)[0];
-    }
+    switch (tower.targetMode) {
+      case "last":
+        return candidates.slice().sort(
+          (a, b) => a.progress - b.progress
+        )[0];
 
-    if (tower.targetMode === "close") {
-      return candidates.slice().sort(
-        (a, b) =>
-          distance(tower.x, tower.y, a.position.x, a.position.y) -
-          distance(tower.x, tower.y, b.position.x, b.position.y)
-      )[0];
-    }
+      case "close":
+        return candidates.slice().sort(
+          (a, b) =>
+            distance(
+              tower.x,
+              tower.y,
+              a.position.x,
+              a.position.y
+            ) -
+            distance(
+              tower.x,
+              tower.y,
+              b.position.x,
+              b.position.y
+            )
+        )[0];
 
-    if (tower.targetMode === "strong") {
-      return candidates.slice().sort(
-        (a, b) =>
-          b.data.layer - a.data.layer ||
-          b.health - a.health
-      )[0];
-    }
+      case "strong":
+        return candidates.slice().sort(
+          (a, b) =>
+            b.data.layer - a.data.layer ||
+            b.health - a.health
+        )[0];
 
-    if (tower.targetMode === "weak") {
-      return candidates.slice().sort(
-        (a, b) => a.health - b.health
-      )[0];
-    }
+      case "weak":
+        return candidates.slice().sort(
+          (a, b) => a.health - b.health
+        )[0];
 
-    return candidates.slice().sort(
-      (a, b) => b.progress - a.progress
-    )[0];
+      case "first":
+      default:
+        return candidates.slice().sort(
+          (a, b) => b.progress - a.progress
+        )[0];
+    }
   }
 
   createProjectile(tower, target, angle, attack) {
@@ -71,14 +87,20 @@ export class CombatSystem {
       speed,
       radius: attack.projectileRadius || 5,
       damage: attack.damage || 0,
-      pierce: Math.max(1, Math.floor(attack.pierce || 1)),
+      pierce: Math.max(
+        1,
+        Math.floor(attack.pierce || 1)
+      ),
       ownerId: tower.id,
-      life: 3,
+      life: attack.projectileLife || 3,
       homing: attack.homing || 0,
       splash: attack.splash || 0,
-      damageType: attack.damageType || "physical",
-      canHitHidden: Boolean(attack.detectHidden),
-      canBreakArmor: Boolean(attack.breakArmor),
+      damageType:
+        attack.damageType || "physical",
+      canHitHidden:
+        Boolean(attack.detectHidden),
+      canBreakArmor:
+        Boolean(attack.breakArmor),
       bounce: Math.floor(attack.bounce || 0),
       slow: attack.slow || 0,
       slowTime: attack.slowTime || 0,
@@ -86,17 +108,33 @@ export class CombatSystem {
       burn: attack.burn || 0,
       corrosion: attack.corrosion || 0,
       mark: attack.mark || 0,
+      critChance: attack.critChance || 0,
+      critMultiplier: attack.critMultiplier || 1,
       sourceTargetId: target.id,
       color: attack.color || "#f6f7f9"
     });
   }
 
   fireTower(tower, delta) {
-    const attack = tower.getAttackData();
-
     tower.cooldown.tick(delta);
 
-    if (!tower.cooldown.ready() || (attack.projectiles || 0) <= 0) {
+    if (!tower.cooldown.ready()) {
+      return;
+    }
+
+    const target = this.chooseTarget(tower);
+
+    const rawAttack = tower.getAttackData();
+    const attack = applyTowerRule(
+      rawAttack,
+      tower.type,
+      target
+    );
+
+    if (
+      (attack.projectiles || 0) <= 0 &&
+      !["spike", "mine", "farm", "beacon", "village"].includes(tower.type)
+    ) {
       return;
     }
 
@@ -105,18 +143,18 @@ export class CombatSystem {
       tower.type === "mine"
     ) {
       tower.cooldown.reset(
-        Math.max(0.12, attack.attackSpeed || 1)
+        Math.max(
+          0.12,
+          attack.attackSpeed || 1
+        )
       );
 
-      const target = this.chooseTarget(tower);
       const progress = target
         ? target.progress
         : 0.98;
 
       this.game.trapsystem.place(
-        tower.type === "spike"
-          ? "spike"
-          : "mine",
+        tower.type,
         tower,
         progress
       );
@@ -124,13 +162,30 @@ export class CombatSystem {
       return;
     }
 
-    const target = targetPreview;
+    if (
+      tower.type === "farm" ||
+      tower.type === "beacon" ||
+      tower.type === "village"
+    ) {
+      tower.cooldown.reset(
+        Math.max(
+          0.50,
+          attack.attackSpeed || 1
+        )
+      );
+      return;
+    }
 
     if (!target) {
       return;
     }
 
-    tower.cooldown.reset(Math.max(0.035, attack.attackSpeed || 1));
+    tower.cooldown.reset(
+      Math.max(
+        0.035,
+        attack.attackSpeed || 1
+      )
+    );
 
     const projectiles = Math.max(
       1,
@@ -145,20 +200,37 @@ export class CombatSystem {
       targetPosition.y
     );
 
-    for (let index = 0; index < projectiles; index += 1) {
-      const totalSpread = attack.spread || (
-        projectiles > 1
-          ? Math.min(0.65, projectiles * 0.08)
-          : 0
-      );
+    for (
+      let index = 0;
+      index < projectiles;
+      index += 1
+    ) {
+      const totalSpread =
+        attack.spread ||
+        (
+          projectiles > 1
+            ? Math.min(
+                0.65,
+                projectiles * 0.08
+              )
+            : 0
+        );
 
-      const offset = projectiles === 1
-        ? 0
-        : (index - (projectiles - 1) / 2) *
-          totalSpread /
-          Math.max(projectiles - 1, 1);
+      const offset =
+        projectiles === 1
+          ? 0
+          : (
+              index -
+              (projectiles - 1) / 2
+            ) *
+            totalSpread /
+            Math.max(
+              projectiles - 1,
+              1
+            );
 
-      const angle = baseAngle + offset;
+      const angle =
+        baseAngle + offset;
 
       if (!attack.speed) {
         this.resolveHit(
@@ -167,19 +239,35 @@ export class CombatSystem {
             damage: attack.damage || 0,
             pierce: 1,
             splash: attack.splash || 0,
-            damageType: attack.damageType || "physical",
-            canHitHidden: Boolean(attack.detectHidden),
-            canBreakArmor: Boolean(attack.breakArmor),
+            damageType:
+              attack.damageType ||
+              "physical",
+            canHitHidden:
+              Boolean(
+                attack.detectHidden
+              ),
+            canBreakArmor:
+              Boolean(
+                attack.breakArmor
+              ),
             slow: attack.slow || 0,
-            slowTime: attack.slowTime || 0,
+            slowTime:
+              attack.slowTime || 0,
             stun: attack.stun || 0,
             burn: attack.burn || 0,
-            corrosion: attack.corrosion || 0,
+            corrosion:
+              attack.corrosion || 0,
             mark: attack.mark || 0,
-            bounce: attack.bounce || 0
+            bounce:
+              attack.bounce || 0,
+            critChance:
+              attack.critChance || 0,
+            critMultiplier:
+              attack.critMultiplier || 1
           },
           target
         );
+
         continue;
       }
 
@@ -195,16 +283,29 @@ export class CombatSystem {
   }
 
   resolveHit(source, target) {
-    if (!target.alive) {
+    if (!target?.alive) {
       return false;
     }
+
+    const critical =
+      source.critChance > 0 &&
+      Math.random() <
+        source.critChance;
+
+    const multiplier = critical
+      ? source.critMultiplier || 2
+      : 1;
 
     const result = target.takeDamage(
       source.damage,
       {
-        damageType: source.damageType,
-        canHitHidden: source.canHitHidden,
-        canBreakArmor: source.canBreakArmor
+        damageType:
+          source.damageType,
+        canHitHidden:
+          source.canHitHidden,
+        canBreakArmor:
+          source.canBreakArmor,
+        multiplier
       }
     );
 
@@ -213,23 +314,36 @@ export class CombatSystem {
     }
 
     if (source.slow > 0) {
-      target.applySlow(source.slow, source.slowTime);
+      target.applySlow(
+        source.slow,
+        source.slowTime
+      );
     }
 
     if (source.stun > 0) {
-      target.applyStun(source.stun);
+      target.applyStun(
+        source.stun
+      );
     }
 
     if (source.burn > 0) {
-      target.applyBurn(source.burn, 2);
+      target.applyBurn(
+        source.burn,
+        2
+      );
     }
 
     if (source.corrosion > 0) {
-      target.applyCorrosion(source.corrosion, 3);
+      target.applyCorrosion(
+        source.corrosion,
+        3
+      );
     }
 
     if (source.mark > 0) {
-      target.mark(source.mark);
+      target.mark(
+        source.mark
+      );
     }
 
     this.game.registerDamage(
@@ -252,34 +366,63 @@ export class CombatSystem {
         .filter(
           (bloon) =>
             bloon.alive &&
-            bloon.id !== target.id &&
+            bloon.id !== target.id
+        )
+        .sort(
+          (a, b) =>
+            distance(
+              target.position.x,
+              target.position.y,
+              a.position.x,
+              a.position.y
+            ) -
+            distance(
+              target.position.x,
+              target.position.y,
+              b.position.x,
+              b.position.y
+            )
+        )
+        .find(
+          (bloon) =>
             distance(
               target.position.x,
               target.position.y,
               bloon.position.x,
               bloon.position.y
-            ) < 100
-        )
-        .sort(
-          (a, b) =>
-            distance(target.position.x,target.position.y,a.position.x,a.position.y) -
-            distance(target.position.x,target.position.y,b.position.x,b.position.y)
-        )[0];
+            ) < 110
+        );
 
       if (nearby) {
-        source.bounce -= 1;
-        this.resolveHit(source, nearby);
+        this.resolveHit(
+          {
+            ...source,
+            bounce:
+              source.bounce - 1,
+            splash: 0
+          },
+          nearby
+        );
       }
     }
 
     return true;
   }
 
-  applySplash(source, origin, radius, damage) {
-    const originPoint = origin.position;
+  applySplash(
+    source,
+    origin,
+    radius,
+    damage
+  ) {
+    const originPoint =
+      origin.position;
 
     for (const target of this.game.bloons) {
-      if (!target.alive || target.id === origin.id) {
+      if (
+        !target.alive ||
+        target.id === origin.id
+      ) {
         continue;
       }
 
@@ -320,11 +463,18 @@ export class CombatSystem {
       }
 
       for (const target of this.game.bloons) {
-        if (!projectile.alive || !target.alive) {
+        if (
+          !projectile.alive ||
+          !target.alive
+        ) {
           break;
         }
 
-        if (projectile.hitIds.has(target.id)) {
+        if (
+          projectile.hitIds.has(
+            target.id
+          )
+        ) {
           continue;
         }
 
@@ -334,17 +484,22 @@ export class CombatSystem {
             projectile.y,
             target.position.x,
             target.position.y
-          ) > projectile.radius + target.radius
+          ) >
+          projectile.radius +
+          target.radius
         ) {
           continue;
         }
 
-        projectile.hitIds.add(target.id);
-
-        const hit = this.resolveHit(
-          projectile,
-          target
+        projectile.hitIds.add(
+          target.id
         );
+
+        const hit =
+          this.resolveHit(
+            projectile,
+            target
+          );
 
         if (!hit) {
           continue;
@@ -354,20 +509,30 @@ export class CombatSystem {
 
         if (projectile.pierce <= 0) {
           projectile.alive = false;
-        } else if (projectile.bounce > 0) {
+        }
+
+        if (
+          projectile.bounce > 0 &&
+          projectile.alive
+        ) {
           projectile.bounce -= 1;
         }
       }
     }
 
-    this.game.projectiles = this.game.projectiles.filter(
-      (projectile) => projectile.alive
-    );
+    this.game.projectiles =
+      this.game.projectiles.filter(
+        (projectile) =>
+          projectile.alive
+      );
   }
 
   update(delta) {
     for (const tower of this.game.towers) {
-      this.fireTower(tower, delta);
+      this.fireTower(
+        tower,
+        delta
+      );
     }
 
     this.updateProjectiles(delta);
