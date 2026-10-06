@@ -2,7 +2,7 @@ import { BLOONS } from "./data.js";
 import { clamp, Cooldown, distance } from "./math.js";
 
 export class Bloon {
-  constructor({ id, type, progress = 0, path, healthMultiplier = 1, fortified = null }) {
+  constructor({ id, type, progress = 0, path, healthMultiplier = 1, fortified = null, camo = false, regrow = false }) {
     const data = BLOONS[type];
 
     if (!data) {
@@ -21,7 +21,10 @@ export class Bloon {
     this.alive = true;
     this.spawnedChildren = false;
     this.fortified = fortified ?? Boolean(data.fortified);
-    this.hidden = false;
+    this.camo = Boolean(camo);
+    this.regrow = Boolean(regrow);
+    this.hidden = this.camo;
+    this.regrowRate = this.data.regrowRate || 0.015;
     this.status = {
       slow: 0,
       stun: 0,
@@ -60,6 +63,7 @@ export class Bloon {
     this.flash = Math.max(0, this.flash - delta * 5);
 
     this.tickDamageOverTime(delta);
+    this.tickRegeneration(delta);
 
     if (!this.alive) {
       return;
@@ -85,6 +89,22 @@ export class Bloon {
     if (this.health <= 0) {
       this.alive = false;
     }
+  }
+
+  tickRegeneration(delta) {
+    if (
+      !this.regrow ||
+      this.health <= 0 ||
+      this.status.burn > 0 ||
+      this.status.corrosion > 0
+    ) {
+      return;
+    }
+
+    this.health = Math.min(
+      this.maxHealth,
+      this.health + this.maxHealth * this.regrowRate * delta
+    );
   }
 
   takeDamage(amount, options = {}) {
@@ -187,7 +207,9 @@ export class Bloon {
       progress: clamp(this.progress - index * 0.0008, 0, 0.999),
       path: this.path,
       healthMultiplier: this.healthMultiplier,
-      fortified: this.fortified
+      fortified: this.fortified,
+      camo: this.camo,
+      regrow: this.regrow
     }));
   }
 }
