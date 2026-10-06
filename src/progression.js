@@ -41,7 +41,7 @@ export class ProgressionSystem {
 
   load() {
     const profile = this.save.profile();
-    return {
+    const state = {
       ...deepClone(DEFAULT_PROGRESS),
       ...profile.progression,
       settings: {
@@ -57,9 +57,12 @@ export class ProgressionSystem {
       }
     };
 
-    this.state.knowledge.credits =
-      this.state.knowledge.credits ||
-      0;
+    state.knowledge.credits =
+      Number(
+        state.knowledge.credits || 0
+      );
+
+    return state;
   }
 
   awardXp(amount, reason = "unknown") {
