@@ -219,7 +219,12 @@ export class Bloon {
     if(base.stealth)this.tags.add('stealth');
     this.armored=!!base.armored;
     this.boss=!!base.boss;
-    this.age=0;
+    this.fortified=false;
+    this.regrow=false;
+    this.regrowRate=0;
+    this.lastDamagedAt=0;
+    this.phase=0;
+    this.bossAbilityTimer=4;
     this.cashGiven=false;
     this.path=this.game.paths[pathIndex];
     const p=this.path.pointAtDistance(0);
@@ -232,6 +237,10 @@ export class Bloon {
     if(this.freeze>0){this.freeze-=dt;return true;}
     if(this.stun>0){this.stun-=dt;return true;}
     this.slow=clamp(this.slow,.1,1);
+    if(this.regrow&&this.hp<this.maxHp&&this.game.gameTime-this.lastDamagedAt>2){
+      this.hp=Math.min(this.maxHp,this.hp+this.maxHp*this.regrowRate*dt);
+    }
+    this.updateBossBehavior(dt);
     this.distance+=this.speed*this.slow*dt;
     if(this.burn>0){
       this.burn-=dt;
@@ -249,6 +258,7 @@ export class Bloon {
     if(this.armored&&!options.ignoreArmor&&!source?.armorPierce)dmg*=.55;
     if(this.boss)dmg*=options.bossMult||1;
     this.hp-=dmg;
+    this.lastDamagedAt=this.game.gameTime;
     this.game.spawnText(this.x,this.y-10,`-${Math.max(1,Math.round(dmg))}`,'#ffd1d1',10);
     if(this.hp<=0){this.destroy(source);return {damage:dmg,killed:true};}
     return {damage:dmg,killed:false};
@@ -270,6 +280,60 @@ export class Bloon {
     }
     this.game.spawnBurst(this.x,this.y,this.color,this.boss?34:12);
   }
+  updateBossBehavior(dt){
+    if(!this.boss)return;
+    this.bossAbilityTimer-=dt;
+
+    const healthRatio=this.hp/Math.max(1,this.maxHp);
+
+    if(this.type==='bloonBoss'){
+      const nextPhase=healthRatio>.75?1:healthRatio>.50?2:healthRatio>.25?3:4;
+
+      if(nextPhase!==this.phase){
+        this.phase=nextPhase;
+        this.game.spawnRing(this.x,this.y,180+nextPhase*35,this.color);
+        this.game.toast('Ruin Warden entered phase '+nextPhase,'danger');
+
+        if(nextPhase>=2){
+          this.slow=Math.max(this.slow,.8);
+        }
+      }
+
+      if(this.bossAbilityTimer<=0){
+        this.bossAbilityTimer=Math.max(5,13-this.phase*1.5);
+
+        if(this.phase>=2){
+          this.game.spawnBloon('ddt',2+this.phase,0.1,1+this.phase*.12);
+        }
+
+        if(this.phase>=3){
+          this.hp=Math.min(this.maxHp,this.hp+this.maxHp*.04);
+          this.game.spawnText(this.x,this.y-72,'REPAIRED','#+','#fff0a1',12);
+        }
+
+        if(this.phase>=4){
+          for(const b of this.game.bloons){
+            if(!b.dead)b.speed*=1.04;
+          }
+        }
+      }
+    }
+
+    if(this.type==='bad' && this.bossAbilityTimer<=0){
+      this.bossAbilityTimer=18;
+      if(this.hp/this.maxHp<.55){
+        this.game.spawnBloon('ddt',4,.08,1.2);
+      }
+    }
+
+    if(this.type==='zomg' && this.bossAbilityTimer<=0){
+      this.bossAbilityTimer=20;
+      if(this.hp/this.maxHp<.5){
+        this.game.spawnBloon('moab',2,.25,1.1);
+      }
+    }
+  }
+
   leak(){
     if(this.dead)return;
     this.dead=true;
@@ -829,7 +893,20 @@ export class GameEngine {
   }
   spawnBloon(type,count,interval=.1,scale=1){
     for(let i=0;i<count;i++){
-      const pathIndex=this.randomPathIndex();const b=new Bloon(this,type,pathIndex,-i*8,scale);this.bloons.push(b);
+      const pathIndex=this.randomPathIndex();
+      const b=new Bloon(this,type,pathIndex,-i*8,scale);
+      const fortifiedTypes=['lead','ceramic','moab','bfb','zomg','ddt','bad','bloonBoss'];
+      const regrowTypes=['green','yellow','pink','rainbow','ceramic'];
+      if(this.round>=45&&fortifiedTypes.includes(type)&&Math.random()<Math.min(.18,.02+(this.round-45)*.002)){
+        b.fortified=true;
+        b.hp=Math.round(b.hp*1.65);
+        b.maxHp=b.hp;
+      }
+      if(this.round>=35&&regrowTypes.includes(type)&&Math.random()<Math.min(.18,.03+(this.round-35)*.002)){
+        b.regrow=true;
+        b.regrowRate=.018;
+      }
+      this.bloons.push(b);
     }
   }
   randomPathIndex(){return Math.floor(Math.random()*this.paths.length);}
