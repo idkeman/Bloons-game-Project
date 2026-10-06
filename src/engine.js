@@ -308,7 +308,7 @@ export class Bloon {
 
         if(this.phase>=3){
           this.hp=Math.min(this.maxHp,this.hp+this.maxHp*.04);
-          this.game.spawnText(this.x,this.y-72,'REPAIRED','#+','#fff0a1',12);
+          this.game.spawnText(this.x,this.y-72,'REPAIRED','#fff0a1',12);
         }
 
         if(this.phase>=4){
