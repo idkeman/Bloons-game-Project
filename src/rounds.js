@@ -88,7 +88,15 @@ export function createRound(round, seed = 1) {
       fortified:
         round >= 25 &&
         data.layer >= 8 &&
-        (seed + guard + round) % 9 === 0
+        (seed + guard + round) % 9 === 0,
+      camo:
+        round >= 24 &&
+        (round % 6 === 0 || data.layer >= 8) &&
+        (seed + guard) % 5 === 0,
+      regrow:
+        round >= 30 &&
+        data.layer >= 5 &&
+        (seed + guard + round) % 7 === 0
     });
 
     remaining -= count * unitCost;
