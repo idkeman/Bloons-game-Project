@@ -83,6 +83,12 @@ game.on("hud", hud => ui.updateHUD(hud));
 game.on("towerMenu", towers => ui.renderTowerButtons(towers));
 game.on("selection", selection => ui.renderSelection(selection));
 game.on("progress", profile => ui.updateProgress(profile));
+game.on("knowledge", nodes =>
+  ui.updateKnowledge(
+    nodes,
+    game.progression.state.knowledge.credits
+  )
+);
 game.on("mapList", maps => ui.renderMapList(maps));
 game.on("manual", glossary => ui.showManual(glossary));
 
