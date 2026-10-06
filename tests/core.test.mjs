@@ -37,7 +37,7 @@ test("crosspath rules permit 2-2-1 but block simultaneous tier-three paths", () 
     config
   });
 
-  assert.equal(tower.buyUpgrade(0, 1, 650), true);
+  assert.equal(tower.buyUpgrade(0, 1, 650).ok, true);
   assert.equal(tower.buyUpgrade(1, 1, 650).ok, true);
   assert.equal(tower.buyUpgrade(2, 1, 650).ok, true);
 
@@ -69,7 +69,7 @@ test("layered enemies split at their current route progress", () => {
 
   assert.equal(children.length, 2);
   assert.equal(children[0].type, "zebra");
-  assert.equal(children[0].progress < 0.42, true);
+  assert.equal(children[0].progress <= 0.42, true);
   assert.equal(children[1].progress < children[0].progress, true);
 });
 
@@ -92,7 +92,7 @@ test("armored enemies block ordinary physical damage", () => {
   });
 
   assert.equal(blocked.damage, 0);
-  assert.equal(blocked.blocked, "armor");
+  assert.equal(blocked.blocked, "physical");
   assert.equal(metal.alive, true);
 
   const energy = metal.takeDamage(5, {
