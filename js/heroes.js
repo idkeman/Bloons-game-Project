@@ -276,6 +276,8 @@ export class Hero {
     this.attackTimer = 0.05;
     this.abilityCooldown = 0;
     this.effects = new Map();
+    this.cashTimer = 0;
+    this.repairTimer = 0;
     this.targetMode = this.spec.targetMode;
     this.selected = false;
     this.damageDealt = 0;
@@ -300,6 +302,14 @@ export class Hero {
       executeThreshold: 0,
       auraSpeed: 0,
       auraRange: 0,
+      roundIncome: 0,
+      incomeMultiplier: 0,
+      discount: 0,
+      sellBonus: 0,
+      cashInterval: 0,
+      cashAmount: 0,
+      repairInterval: 0,
+      repairAmount: 0,
       auraDamage: 0,
       ...this.spec
     }, currentLevels);
@@ -431,6 +441,30 @@ export class Hero {
       const target = this.game.findHeroTarget(this);
       if (target) this.attack(target);
       this.attackTimer = this.attackCooldownValue();
+    }
+
+    if (this.stats.cashInterval > 0) {
+      this.cashTimer += dt;
+      while (this.cashTimer >= this.stats.cashInterval) {
+        this.cashTimer -= this.stats.cashInterval;
+        const payout = Math.max(0, Math.floor(this.stats.cashAmount));
+        this.game.cash += payout;
+        this.game.statsThisRun.creditsEarned += payout;
+        this.game.save.statistics.creditsEarned += payout;
+        this.game.emit("heroIncome", { hero:this, payout });
+      }
+    }
+
+    if (this.stats.repairInterval > 0) {
+      this.repairTimer += dt;
+      while (this.repairTimer >= this.stats.repairInterval) {
+        this.repairTimer -= this.stats.repairInterval;
+        const repair = Math.max(0, Math.floor(this.stats.repairAmount));
+        if (repair > 0) {
+          this.game.lives += repair;
+          this.game.emit("heroRepair", { hero:this, repair });
+        }
+      }
     }
 
     if (this.level < this.spec.levels.length) {
