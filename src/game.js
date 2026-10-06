@@ -538,6 +538,7 @@ export class Game {
 
     this.selectedId = null;
     this.pendingTower = null;
+    this.pendingHero = null;
     this.buildMode = true;
     this.multiPlace = false;
 
