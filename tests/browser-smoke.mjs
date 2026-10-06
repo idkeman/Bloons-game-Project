@@ -591,7 +591,10 @@ assert.ok(
 assert.equal(
   errors.length,
   0,
-  "page should produce no uncaught JavaScript errors"
+  "page should produce no uncaught JavaScript errors: " +
+  errors
+    .map((error) => error?.stack || error?.message || String(error))
+    .join("\n---\n")
 );
 
 await browser.close();
