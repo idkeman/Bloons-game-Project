@@ -63,6 +63,33 @@
         <div id="towerPalette" class="tower-palette"></div>
       </section>
 
+      <section class="panel-section">
+        <div class="section-heading">
+          <h2>Commanders</h2>
+          <span>Hero-class units</span>
+        </div>
+        <div id="heroPalette" class="tower-palette"></div>
+      </section>
+
+      <section id="selectedHeroPanel" class="panel-section selected-panel hidden">
+        <div class="section-heading">
+          <h2 id="selectedHeroName">No commander selected</h2>
+          <button id="closeHeroSelectionButton" class="icon-button" title="Close">×</button>
+        </div>
+        <div id="selectedHeroStats" class="selected-stats"></div>
+        <div class="selection-actions">
+          <button id="heroAbilityButton" class="ability-button">Ability</button>
+        </div>
+        <div class="target-grid hero-target-grid">
+          <button data-target="first" class="target-button">First</button>
+          <button data-target="last" class="target-button">Last</button>
+          <button data-target="strongest" class="target-button">Strong</button>
+          <button data-target="weakest" class="target-button">Weak</button>
+          <button data-target="close" class="target-button">Close</button>
+          <button data-target="far" class="target-button">Far</button>
+        </div>
+      </section>
+
       <section id="selectedTowerPanel" class="panel-section selected-panel hidden">
         <div class="section-heading">
           <h2 id="selectedTowerName">No tower selected</h2>
