@@ -69,6 +69,7 @@ export class Game {
 
     this.selectedId = null;
     this.pendingTower = null;
+    this.pendingHero = null;
     this.buildMode = true;
     this.multiPlace = false;
     this.lastPointer = { x: 0, y: 0, inside: false };
@@ -598,11 +599,26 @@ export class Game {
   }
 
   selectBuildTower(towerId) {
+    if (typeof towerId === "string" && towerId.startsWith("hero:")) {
+      const heroId = towerId.slice(5);
+      if (!HEROES.some((hero) => hero.id === heroId)) {
+        return;
+      }
+
+      this.pendingHero = heroId;
+      this.pendingTower = null;
+      this.buildMode = true;
+      this.selectedId = null;
+      this.emit("selection", null);
+      return;
+    }
+
     if (!TOWERS[towerId]) {
       return;
     }
 
     this.pendingTower = towerId;
+    this.pendingHero = null;
     this.buildMode = true;
     this.selectedId = null;
     this.emit("selection", null);
@@ -757,6 +773,7 @@ export class Game {
     this.heroes.push(hero);
     this.selectedId = hero.id;
     this.pendingTower = null;
+    this.pendingHero = null;
     this.emitSelectionIfNeeded(hero.id);
     return true;
   }
@@ -772,6 +789,7 @@ export class Game {
     }
 
     this.pendingTower = null;
+    this.pendingHero = null;
     this.buildMode = false;
     this.selectedId = id;
     this.emitSelectionIfNeeded(id);
@@ -817,6 +835,15 @@ export class Game {
 
   handlePointer(point) {
     if (this.state !== GAME_STATES.RUNNING) {
+      return;
+    }
+
+    if (this.buildMode && this.pendingHero) {
+      this.placeHero(
+        this.pendingHero,
+        point.x,
+        point.y
+      );
       return;
     }
 
@@ -1503,8 +1530,8 @@ export class Game {
 
     if (
       this.lastPointer.inside &&
-      this.pendingTower &&
-      this.buildMode
+      this.buildMode &&
+      (this.pendingTower || this.pendingHero)
     ) {
       this.drawPlacementGhost(ctx);
     }
@@ -1998,19 +2025,35 @@ export class Game {
     const config =
       TOWERS[this.pendingTower];
 
-    if (!config) {
+    if (!config && !this.pendingHero) {
       return;
     }
 
+    const heroConfig = this.pendingHero
+      ? HEROES.find((hero) => hero.id === this.pendingHero)
+      : null;
+
+    const radiusConfig = config || {
+      base: {
+        range: heroConfig?.attack.range || 120
+      }
+    };
+
     const legal =
-      this.canPlace(
-        this.lastPointer.x,
-        this.lastPointer.y,
-        this.pendingTower
-      );
+      this.pendingHero
+        ? this.canPlace(
+            this.lastPointer.x,
+            this.lastPointer.y,
+            "sharpshooter"
+          )
+        : this.canPlace(
+            this.lastPointer.x,
+            this.lastPointer.y,
+            this.pendingTower
+          );
 
     const radius =
-      config.base.range;
+      radiusConfig.base.range;
 
     ctx.save();
 
