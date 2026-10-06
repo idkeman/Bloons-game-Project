@@ -8,7 +8,7 @@ import { CombatSystem } from "./combat.js";
 import { ProgressionSystem } from "./progression.js";
 import { canPlaceAt } from "./placement.js";
 import { BossController } from "./bosses.js";
-import { TrapSystem } from "./traps.js";
+import { TrapField, TrapSystem } from "./traps.js";
 import { validateGameState } from "./diagnostics.js";
 import { canCreateParagon, calculateDegree, getParagonData } from "./paragons.js";
 import { getGameMode } from "./game_modes.js";
@@ -1760,10 +1760,7 @@ export class Game {
     );
 
     this.traps = (snapshot.traps || []).map(
-      (saved) =>
-        this.trapsystem.constructor
-          ? TrapField.fromSnapshot(saved)
-          : saved
+      (saved) => TrapField.fromSnapshot(saved)
     );
 
     this.rounds.restore(
