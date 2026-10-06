@@ -11,6 +11,7 @@ import { BossController } from "./bosses.js";
 import { TrapField, TrapSystem } from "./traps.js";
 import { validateGameState } from "./diagnostics.js";
 import { canCreateParagon, calculateDegree, getParagonData } from "./paragons.js";
+import { activateTowerAbility } from "./tower_abilities.js";
 import { getGameMode } from "./game_modes.js";
 import { aggregateKnowledge } from "./knowledge.js";
 
@@ -1143,223 +1144,62 @@ export class Game {
   }
 
   activateAbility(entityId) {
-    const hero = this.heroes.find(
-      (unit) => unit.id === entityId
-    );
+    const hero =
+      this.heroes.find(
+        (unit) => unit.id === entityId
+      );
 
     if (hero) {
       if (hero.activate(this)) {
         this.emit("toast", {
-          text: hero.name + " ability activated.",
+          text:
+            hero.name +
+            " ability activated.",
           kind: "ability"
         });
       }
-      this.emitSelectionIfNeeded(hero.id);
+
+      this.emitSelectionIfNeeded(
+        hero.id
+      );
       return;
     }
 
-    const tower = this.towers.find(
-      (unit) => unit.id === entityId
-    );
+    const tower =
+      this.towers.find(
+        (unit) => unit.id === entityId
+      );
 
-    if (!tower || !tower.abilityCooldown.ready()) {
+    if (
+      !tower ||
+      !tower.abilityCooldown.ready()
+    ) {
       return;
     }
 
-    tower.abilityCooldown.reset(
-      (
-        tower.type === "engineer"
-          ? 24
-          : 18
-      ) *
-      this.gameMode.abilityCooldownMultiplier
-    );
-    tower.abilityActive = 8;
-    tower.abilityMultiplier = 2.2;
+    const activation =
+      activateTowerAbility(
+        this,
+        tower
+      );
 
-    if (tower.type === "village") {
-      for (const other of this.towers) {
-        other.buff.attackSpeed *= 0.55;
-      }
+    if (activation !== false) {
+      const abilityName =
+        tower.config.name +
+        " • " +
+        tower.type;
+
       this.emit("toast", {
-        text: "Command burst active.",
+        text:
+          abilityName +
+          " ability activated.",
         kind: "ability"
       });
-      return;
     }
 
-    if (
-      tower.type === "sniper" ||
-      tower.type === "boat"
-    ) {
-      this.addCash(150, "ability", tower);
-      this.emit("toast", {
-        text: "Supply package received.",
-        kind: "money"
-      });
-      return;
-    }
-
-    if (tower.type === "cannon") {
-      for (const bloon of this.bloons) {
-        if (bloon.alive) {
-          bloon.applyStun(2.5);
-        }
-      }
-      return;
-    }
-
-    for (const bloon of this.bloons) {
-      if (bloon.alive) {
-        bloon.applySlow(0.65, 3.5);
-      }
-    }
-
-    this.emitSelectionIfNeeded(tower.id);
-  }
-
-  sellSelected() {
-    const index = this.towers.findIndex(
-      (tower) => tower.id === this.selectedId
+    this.emitSelectionIfNeeded(
+      tower.id
     );
-
-    if (index < 0) {
-      return false;
-    }
-
-    const tower = this.towers[index];
-    const value = Math.round(
-      tower.totalSpent *
-      (0.70 + (this.knowledge.sellMultiplier || 0))
-    );
-
-    this.addCash(
-      value,
-      "sell"
-    );
-
-    this.towers.splice(index, 1);
-    this.selectedId = null;
-    this.emit("selection", null);
-    this.emit("toast", {
-      text: "Sold for $" + value + ".",
-      kind: "money"
-    });
-
-    return true;
-  }
-
-  upgradeMode() {
-    this.buildMode = false;
-
-    const tower = this.selectedTower();
-
-    if (tower) {
-      this.emit("toast", {
-        text: "Use 1, 2, or 3 to buy the next path upgrade.",
-        kind: "info"
-      });
-    }
-  }
-
-  ascendTower(entityId) {
-    const center = this.towers.find(
-      (tower) => tower.id === entityId
-    );
-
-    if (!center || center.ascended) {
-      return false;
-    }
-
-    const paragonData = getParagonData(center.type);
-
-    if (
-      !paragonData ||
-      !canCreateParagon(
-        this.towers,
-        center.type
-      )
-    ) {
-      this.emit("toast", {
-        text: "Requires three qualifying Tier 5 towers of this type.",
-        kind: "danger"
-      });
-      return false;
-    }
-
-    const candidates = this.towers
-      .filter(
-        (tower) =>
-          tower.type === center.type &&
-          tower.pathLevels.includes(5) &&
-          !tower.ascended
-      )
-      .sort(
-        (a, b) => b.totalSpent - a.totalSpent
-      );
-
-    if (candidates.length < 3) {
-      return false;
-    }
-
-    const sacrifices = candidates.slice(0, 3);
-    const sacrificeValue = sacrifices.reduce(
-      (sum, tower) => sum + tower.totalSpent,
-      0
-    );
-
-    const cost = paragonData.minimumCash;
-
-    if (
-      !this.sandbox &&
-      this.cash < cost
-    ) {
-      this.emit("toast", {
-        text: "Not enough cash to ascend.",
-        kind: "danger"
-      });
-      return false;
-    }
-
-    if (!this.sandbox) {
-      this.cash -= cost;
-    }
-
-    const degree = calculateDegree({
-      cashSpent: cost,
-      sacrificeValue,
-      extraCash: Math.max(0, this.cash - 10000),
-      paragonData
-    });
-
-    const host = sacrifices[0];
-
-    host.ascended = true;
-    host.ascensionDegree = degree;
-    host.paragonData = paragonData;
-    host.pathLevels = [5, 5, 5];
-
-    for (const sacrificed of sacrifices.slice(1)) {
-      const index = this.towers.findIndex(
-        (tower) => tower.id === sacrificed.id
-      );
-
-      if (index >= 0) {
-        this.towers.splice(index, 1);
-      }
-    }
-
-    this.emit("toast", {
-      text:
-        paragonData.name +
-        " created at degree " +
-        degree +
-        ".",
-      kind: "ability"
-    });
-
-    this.emitSelectionIfNeeded(host.id);
-    return true;
   }
 
   recalculateBuffs() {
