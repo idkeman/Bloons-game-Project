@@ -444,7 +444,7 @@ export class Tower {
     const interval=this.effectiveRate>=50?1.2:this.effectiveRate;
     if(this.incomeTimer>=interval){
       this.incomeTimer=0;
-      const count=Math.max(1,this.effectiveCount||1);
+      const count=Math.max(1,Math.round((this.effectiveCount||1)*(this.game.heroRefractionTimer>0?2:1)));
       for(let i=0;i<count;i++){
         const p=clamp(this.game.randomPathIndex(),0,this.game.paths.length-1);
         this.spikes.push({pathIndex:p,distance:0,damage:this.effectiveDamage, pierce:this.effectivePierce,life:22});
@@ -562,7 +562,7 @@ export class Tower {
     if(cd>0)return false;
     this.abilityCooldowns[key]=ability.cooldown;
     if(ability.name==='Scorch Ring'){
-      for(const b of this.game.bloons){if(!b.dead&&dist2(this,b)<220*220){b.takeDamage(65,this);b.slow=.45;burn(b,3,12);}}
+      for(const b of this.game.bloons){if(!b.dead&&dist2(this,b)<220*220){b.takeDamage(65,this);b.slow=.45;b.burn=Math.max(b.burn,3);b.burnDamage=Math.max(b.burnDamage,12);}}
       this.game.spawnRing(this.x,this.y,230,'#ff9e62');
     } else if(ability.name==='Meteor'){
       const target=this.selectTarget(true)||this.game.bloons[0];
@@ -708,6 +708,8 @@ export class GameEngine {
   update(dt){
     this.gameTime+=dt;this.screenShake=Math.max(0,this.screenShake-dt);
     if(this.globalTargetTimer>0){this.globalTargetTimer-=dt;if(this.globalTargetTimer<=0)this.globalTargetMode=null;}
+    if(this.heroRefractionTimer>0)this.heroRefractionTimer-=dt;
+    if(this.masteryArmorPierceTimer>0)this.masteryArmorPierceTimer-=dt;
     this.refreshGlobalAuras();
     this.updateRound(dt);
     for(const tower of this.towers)tower.update(dt);
@@ -726,9 +728,7 @@ export class GameEngine {
 
   refreshGlobalAuras(){
     this.hasGlobalStealth=this.towers.some(t=>!t.sold&&t.globalStealth>0)||false;
-    if(this.heroRefractionTimer>0){this.heroRefractionTimer-=1/60;}
-    if(this.masteryArmorPierceTimer>0){this.masteryArmorPierceTimer-=1/60;}
-    this.globalSpeedBonus=Math.min(.55,this.towers.filter(t=>!t.sold&&t.globalSpeed).reduce((a,t)=>a+(t.globalSpeed||0),0));
+     this.globalSpeedBonus=Math.min(.55,this.towers.filter(t=>!t.sold&&t.globalSpeed).reduce((a,t)=>a+(t.globalSpeed||0),0));
     this.globalDamageBonus=this.towers.filter(t=>!t.sold&&t.globalDamage).reduce((a,t)=>a+(t.globalDamage||0),0);
     this.globalDamageBonus+=this.masteryEffects?.armorDamage||0;
     this.globalPierceBonus=this.towers.filter(t=>!t.sold&&t.globalPierce).reduce((a,t)=>a+(t.globalPierce||0),0)+ (this.masteryEffects?.pierce||0);
