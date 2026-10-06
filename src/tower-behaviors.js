@@ -4,8 +4,6 @@
  * not merely a shared damage number.
  */
 
-import { Projectile, Vec2 } from './engine.js';
-
 const TAU = Math.PI * 2;
 
 const p = (tower, index) => tower.levels[index] || 0;
@@ -13,9 +11,9 @@ const p = (tower, index) => tower.levels[index] || 0;
 function projectile(tower, target, options = {}) {
   const angle = options.angle ?? Math.atan2(target.y - tower.y, target.x - tower.x);
   const speed = options.speed ?? tower.effectiveSpeed;
-  const vector = Vec2.fromAngle(angle, speed);
+  const vector = { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed };
 
-  tower.game.projectiles.push(new Projectile(tower.game, {
+  tower.game.projectiles.push(tower.game.createProjectile({
     x: tower.x,
     y: tower.y,
     vx: vector.x,
