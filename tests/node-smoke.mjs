@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { TOWERS, ENEMIES, MAPS, ROUNDS } from "../js/data.js";
-import { Game, Tower } from "../js/engine.js";
+import { Game, Tower, Projectile } from "../js/engine.js";
 
 const storageMap = new Map();
 globalThis.localStorage = {
@@ -116,22 +116,17 @@ const splashSource = new Tower(game, "sentinel", 450, 350);
 splashSource.stats.pierce = 3;
 const primaryHp = splashTargetA.hp;
 const secondaryHp = splashTargetB.hp;
-game.projectiles.push({
-  dead: false,
-  update() {},
-  impact(targetGame, target) {
-    const result = target.takeDamage(5, this.stats);
-    splashSource.totalDamage += result.damage;
-    targetGame.statsThisRun.damageDealt += result.damage;
-    for (const nearby of targetGame.spatial.queryCircle(target.x, target.y, 60)) {
-      if (nearby === target || nearby.dead || nearby.leaked) continue;
-      nearby.takeDamage(2, this.stats);
-    }
-    this.dead = true;
-  },
-  stats: { pierce: 3, splashDamage: 2, armorBypass: 999 }
+const splashProjectile = new Projectile(game, splashSource, splashTargetA, {
+  damage: 5,
+  pierce: 3,
+  speed: 500,
+  splashDamage: 2,
+  aoeRadius: 60,
+  armorBypass: 999,
+  velocityX: 0,
+  velocityY: 0
 });
-game.projectiles[game.projectiles.length - 1].impact(game, splashTargetA);
+splashProjectile.impact(game, splashTargetA);
 assert.equal(splashTargetA.hp, primaryHp - 5);
 assert.equal(splashTargetB.hp, secondaryHp - 2);
 
