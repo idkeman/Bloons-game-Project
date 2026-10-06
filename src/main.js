@@ -28,10 +28,3 @@ setInterval(()=>ui.update(),100);
 setInterval(()=>{if(game.state===GameState.PLAYING)game.save();},5000);
 
 window.addEventListener('beforeunload',()=>game.save());
-
-// Keep game state and UI synchronized even when the browser throttles timers.
-function stateWatch(){
-  ui.update();
-  requestAnimationFrame(stateWatch);
-}
-stateWatch();
