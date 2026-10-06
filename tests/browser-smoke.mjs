@@ -563,7 +563,7 @@ assert.ok(
 await page.evaluate(() => {
   const game = window.monkeyFrontier.game;
   game.progression.awardKnowledgeCredits(500);
-  game.ui.showKnowledge(
+  window.monkeyFrontier.ui.showKnowledge(
     game.progression.listKnowledgeNodes(),
     game.progression.state.knowledge.credits
   );
