@@ -1,6 +1,7 @@
 import { TOWERS, HEROES, MAPS, DIFFICULTIES, MODES, PARAGONS } from './data.js';
 import { CODEX, categories, byCategory } from './codex.js';
 import { MASTERY, MasteryProfile } from './mastery.js';
+import { ACHIEVEMENTS } from './achievements.js';
 import { GameState } from './engine.js';
 
 const money = n => `$${Math.max(0,Math.floor(n)).toLocaleString()}`;
@@ -11,7 +12,7 @@ export class UIController {
     this.game=game;
     this.els={};
     const ids=[
-      'menuScreen','setupScreen','howToScreen','fieldManualScreen','masteryScreen','gameScreen','playButton','resumeButton','howToPlayButton','resetSaveButton','fieldManualButton','masteryButton','manualBackButton','masteryBackButton','manualCategorySelect','manualEntries','masteryTree','masteryPointsLabel','setupBackButton','howBackButton','startGameButton','mapPicker','difficultyPicker','modePicker','heroPicker','startCashValue','startLivesValue','roundCapValue','livesValue','cashValue','ecoValue','roundValue','statusText','roundProgressBar','pauseButton','speedButton','buildModeButton','menuButton','towerButtons','heroButton','sidePanel','buildPanel','selectionPanel','heroPanel','selectedTowerHint','selectionIcon','selectionName','selectionLevel','selectionStats','targetModeSelect','upgradeBranches','abilityButton','paragonButton','sellButton','sellValue','heroIcon','heroName','heroLevel','heroStats','heroXpBar','heroXpText','heroAbilities','autoStartToggle','fastToggle','roundSpeedLabel','startRoundButton','cancelPlacementButton','toastLayer','roundBanner','bossBanner','gameOverOverlay','gameOverTitle','gameOverSummary','restartButton','quitButton'
+      'menuScreen','setupScreen','howToScreen','fieldManualScreen','masteryScreen','gameScreen','playButton','resumeButton','howToPlayButton','resetSaveButton','fieldManualButton','masteryButton','manualBackButton','masteryBackButton','manualCategorySelect','manualEntries','masteryTree','masteryPointsLabel','achievementList','setupBackButton','howBackButton','startGameButton','mapPicker','difficultyPicker','modePicker','heroPicker','startCashValue','startLivesValue','roundCapValue','livesValue','cashValue','ecoValue','roundValue','statusText','roundProgressBar','pauseButton','speedButton','buildModeButton','menuButton','towerButtons','heroButton','sidePanel','buildPanel','selectionPanel','heroPanel','selectedTowerHint','selectionIcon','selectionName','selectionLevel','selectionStats','targetModeSelect','upgradeBranches','abilityButton','paragonButton','sellButton','sellValue','heroIcon','heroName','heroLevel','heroStats','heroXpBar','heroXpText','heroAbilities','autoStartToggle','fastToggle','roundSpeedLabel','startRoundButton','cancelPlacementButton','toastLayer','roundBanner','bossBanner','gameOverOverlay','gameOverTitle','gameOverSummary','restartButton','quitButton'
     ];
     for(const id of ids)this.els[id]=document.getElementById(id);
     this.selectedMap='meadow';this.selectedDifficulty='normal';this.selectedMode='standard';this.selectedHero='ember';this.buildMode=true;this.mastery=MasteryProfile.load();
@@ -105,6 +106,12 @@ export class UIController {
       }
     }
     this.els.masteryTree.dataset.effects=JSON.stringify(effects);
+    this.renderAchievements();
+  }
+  renderAchievements() {
+    const unlocked=this.game.achievements?.unlocked||new Set();
+    const items=ACHIEVEMENTS.map(a=>'<article class="achievement-item '+(unlocked.has(a.id)?'unlocked':'')+'"><strong>'+a.name+' • '+a.points+'★</strong><small>'+a.description+'</small></article>').join('');
+    this.els.achievementList.innerHTML=items;
   }
 
   renderSetupPickers(){
