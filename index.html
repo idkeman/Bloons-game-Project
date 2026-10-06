@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <title>Monkey Frontier</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="app">
+    <section id="menu-screen" class="screen active">
+      <div class="menu-card">
+        <div class="eyebrow">ORIGINAL TOWER DEFENSE</div>
+        <h1>MONKEY FRONTIER</h1>
+        <p class="subtitle">A deep browser tower-defense sandbox inspired by the systems people love in modern balloon-popping TD games.</p>
+        <div class="menu-grid">
+          <button id="play-btn" class="primary">PLAY</button>
+          <button id="sandbox-btn">SANDBOX</button>
+          <button id="progress-btn">PROGRESSION</button>
+          <button id="glossary-btn">FIELD MANUAL</button>
+        </div>
+        <div id="profile-strip"></div>
+      </div>
+    </section>
+
+    <section id="map-screen" class="screen">
+      <div class="panel wide">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">DEPLOYMENT</div>
+            <h2>Select a map</h2>
+          </div>
+          <button id="map-back-btn">BACK</button>
+        </div>
+        <div id="map-list" class="map-list"></div>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen">
+      <div id="game-root">
+        <canvas id="game-canvas" aria-label="Game field"></canvas>
+
+        <div id="top-hud" class="hud">
+          <div class="hud-group">
+            <span class="metric"><span class="metric-icon">💰</span><strong id="cash-value">$650</strong></span>
+            <span class="metric"><span class="metric-icon">❤</span><strong id="lives-value">100</strong></span>
+            <span class="metric"><span class="metric-icon">●</span><strong id="round-value">0</strong></span>
+          </div>
+          <div class="hud-group center">
+            <span id="boss-warning" class="boss-warning"></span>
+            <button id="speed-btn" title="Cycle speed">▶ 1×</button>
+            <button id="pause-btn">Ⅱ</button>
+          </div>
+          <div class="hud-group">
+            <button id="save-btn">SAVE</button>
+            <button id="menu-btn">MENU</button>
+          </div>
+        </div>
+
+        <div id="left-toolbar" class="toolbar glass">
+          <button id="build-mode-btn" title="Toggle build mode">BUILD</button>
+          <button id="multi-place-btn" title="Toggle multi-place">MULTI</button>
+          <button id="sell-mode-btn" title="Sell selected tower">SELL</button>
+          <button id="upgrade-mode-btn" title="Upgrade selected tower">UPGRADE</button>
+        </div>
+
+        <div id="tower-bar" class="tower-bar glass">
+          <div id="tower-buttons"></div>
+        </div>
+
+        <aside id="selection-panel" class="selection-panel glass hidden">
+          <div class="selection-head">
+            <div>
+              <div id="selection-name" class="selection-name">No selection</div>
+              <div id="selection-level" class="muted">Select a tower</div>
+            </div>
+            <button id="close-selection-btn">×</button>
+          </div>
+          <div id="selection-stats" class="selection-stats"></div>
+          <div id="upgrade-paths" class="upgrade-paths"></div>
+          <div class="selection-actions">
+            <button id="ability-btn" class="primary hidden">ABILITY</button>
+            <button id="paragon-btn" class="hidden">ASCEND</button>
+          </div>
+        </aside>
+
+        <div id="round-controls" class="round-controls glass">
+          <button id="start-round-btn" class="primary">START ROUND</button>
+          <button id="auto-round-btn">AUTO</button>
+        </div>
+
+        <div id="toast-stack" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="progress-screen" class="screen">
+      <div class="panel wide">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">ACCOUNT</div>
+            <h2>Progression</h2>
+          </div>
+          <button id="progress-back-btn">BACK</button>
+        </div>
+        <div id="progress-content"></div>
+      </div>
+    </section>
+
+    <section id="manual-screen" class="screen">
+      <div class="panel wide manual">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">REFERENCE</div>
+            <h2>Field Manual</h2>
+          </div>
+          <button id="manual-back-btn">BACK</button>
+        </div>
+        <div id="manual-content"></div>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
