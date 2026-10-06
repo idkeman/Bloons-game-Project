@@ -1,0 +1,2057 @@
+import { TOWERS, HEROES, DIFFICULTIES, MAPS, BLOONS } from "./data.js";
+import { EventBus, IdFactory, Cooldown, clamp, deepClone, distance } from "./math.js";
+import { RoutePath } from "./path.js";
+import { Bloon, Projectile, Tower } from "./entities.js";
+import { HeroUnit } from "./hero.js";
+import { RoundController } from "./rounds.js";
+import { CombatSystem } from "./combat.js";
+
+export const GAME_STATES = {
+  MENU: "menu",
+  RUNNING: "running",
+  PAUSED: "paused",
+  WON: "won",
+  LOST: "lost"
+};
+
+const SPEEDS = [1, 2, 3];
+
+const COLORS = {
+  red: "#f54f52",
+  blue: "#4fa6ff",
+  green: "#4dd17a",
+  yellow: "#ffd45a",
+  pink: "#ff75b8",
+  zebra: "#e6e9ee",
+  rainbow: "#c96cff",
+  ceramic: "#d89a61",
+  metal: "#98a6b4",
+  prism: "#7ce6ff",
+  blimp: "#d36e83",
+  fortBlimp: "#8f5c79",
+  dreadBlimp: "#6e4a91",
+  bossTitan: "#ed725c",
+  bossSentinel: "#55ccff"
+};
+
+export class Game {
+  constructor({ canvas, save, content }) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.save = save;
+    this.content = content;
+
+    this.events = new EventBus();
+    this.ids = new IdFactory("entity");
+    this.state = GAME_STATES.MENU;
+
+    this.width = 1;
+    this.height = 1;
+    this.dpr = 1;
+
+    this.map = null;
+    this.path = null;
+    this.difficulty = DIFFICULTIES.normal;
+    this.difficultyId = "normal";
+    this.sandbox = false;
+
+    this.cash = 0;
+    this.lives = 0;
+    this.round = 0;
+    this.speed = 1;
+    this.autoRounds = false;
+    this.pausedBeforeMenu = false;
+
+    this.towers = [];
+    this.heroes = [];
+    this.bloons = [];
+    this.projectiles = [];
+
+    this.selectedId = null;
+    this.pendingTower = null;
+    this.buildMode = true;
+    this.multiPlace = false;
+    this.lastPointer = { x: 0, y: 0, inside: false };
+
+    this.rounds = new RoundController(this);
+    this.combat = new CombatSystem(this);
+
+    this.stats = {
+      games: 0,
+      wins: 0,
+      lifetimePops: 0,
+      lifetimeCash: 0,
+      roundPops: 0,
+      roundCash: 0,
+      damage: 0
+    };
+
+    this.particles = [];
+    this.floaters = [];
+    this.clock = 0;
+    this.lastFrame = performance.now();
+    this.runningLoop = false;
+
+    this.bindCanvas();
+  }
+
+  on(event, listener) {
+    return this.events.on(event, listener);
+  }
+
+  emit(event, payload) {
+    this.events.emit(event, payload);
+  }
+
+  bindCanvas() {
+    this.canvas.addEventListener("pointermove", (event) => {
+      const point = this.pointerPoint(event);
+      this.lastPointer = {
+        ...point,
+        inside: true
+      };
+    });
+
+    this.canvas.addEventListener("pointerleave", () => {
+      this.lastPointer.inside = false;
+    });
+
+    this.canvas.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 && event.pointerType !== "touch") {
+        return;
+      }
+
+      const point = this.pointerPoint(event);
+      this.lastPointer = {
+        ...point,
+        inside: true
+      };
+
+      this.handlePointer(point);
+    });
+  }
+
+  startLoop() {
+    if (this.runningLoop) {
+      return;
+    }
+
+    this.runningLoop = true;
+
+    const frame = (time) => {
+      const realDelta = Math.min(
+        0.05,
+        Math.max(0, (time - this.lastFrame) / 1000)
+      );
+
+      this.lastFrame = time;
+      this.tick(realDelta);
+      requestAnimationFrame(frame);
+    };
+
+    requestAnimationFrame(frame);
+  }
+
+  tick(realDelta) {
+    this.clock += realDelta;
+
+    if (
+      this.state === GAME_STATES.RUNNING &&
+      !this.pausedBeforeMenu
+    ) {
+      this.update(realDelta * this.speed);
+    }
+
+    this.render();
+
+    if (Math.floor(this.clock * 2) % 2 === 0) {
+      this.emit("hud", this.hud());
+    }
+  }
+
+  update(delta) {
+    if (!this.map || !this.path) {
+      return;
+    }
+
+    this.recalculateBuffs();
+
+    this.rounds.update(delta);
+
+    for (const bloon of this.bloons) {
+      bloon.update(
+        delta,
+        this.difficulty.speed
+      );
+    }
+
+    for (const bloon of this.bloons) {
+      if (
+        bloon.alive ||
+        bloon.progress < 1
+      ) {
+        continue;
+      }
+
+      this.lives -= bloon.data.boss
+        ? Math.max(10, Math.ceil(bloon.data.layer / 2))
+        : Math.max(1, Math.ceil(bloon.data.layer / 4));
+
+      this.emit("toast", {
+        text: "-" + (
+          bloon.data.boss
+            ? Math.max(10, Math.ceil(bloon.data.layer / 2))
+            : Math.max(1, Math.ceil(bloon.data.layer / 4))
+        ) + " lives",
+        kind: "danger"
+      });
+    }
+
+    this.resolveBloonDeaths();
+
+    for (const hero of this.heroes) {
+      hero.fire(this, delta);
+    }
+
+    this.combat.update(delta);
+
+    for (const tower of this.towers) {
+      this.applyTowerIncome(tower, delta);
+      tower.abilityActive = Math.max(0, tower.abilityActive - delta);
+      tower.abilityCooldown.tick(delta);
+    }
+
+    this.updateParticles(delta);
+    this.cleanup();
+
+    if (this.lives <= 0 && this.state === GAME_STATES.RUNNING) {
+      this.lose();
+    }
+  }
+
+  resolveBloonDeaths() {
+    const survivors = [];
+
+    for (const bloon of this.bloons) {
+      if (bloon.alive) {
+        survivors.push(bloon);
+        continue;
+      }
+
+      if (bloon.progress >= 1) {
+        continue;
+      }
+
+      const children = bloon.splitChildren();
+
+      if (children.length) {
+        for (const child of children) {
+          survivors.push(child);
+        }
+      }
+
+      const reward = Math.max(
+        1,
+        Math.round(
+          (bloon.data.reward || 1) *
+          this.difficulty.cash *
+          (this.sandbox ? 2 : 1)
+        )
+      );
+
+      this.addCash(reward, "pop");
+      this.stats.roundPops += 1;
+      this.stats.lifetimePops += 1;
+
+      this.emit("toast", {
+        text: "+" + reward,
+        kind: "money"
+      });
+
+      this.spawnPopParticles(
+        bloon.position.x,
+        bloon.position.y,
+        COLORS[bloon.type] || "#fff"
+      );
+    }
+
+    this.bloons = survivors;
+  }
+
+  applyTowerIncome(tower, delta) {
+    const attack = tower.getAttackData();
+    const incomeTier = tower.pathLevels[2];
+
+    if (incomeTier <= 0) {
+      return;
+    }
+
+    const baseIncome =
+      tower.type === "sniper"
+        ? incomeTier * 2
+        : tower.type === "boat"
+          ? incomeTier * 3
+          : tower.type === "sub"
+            ? incomeTier * 2.5
+            : tower.type === "village"
+              ? incomeTier * 1.5
+              : tower.type === "spike"
+                ? incomeTier
+                : tower.type === "engineer"
+                  ? incomeTier * 2
+                  : 0;
+
+    const interval =
+      incomeTier >= 5
+        ? 1
+        : incomeTier >= 4
+          ? 2
+          : 4;
+
+    tower._incomeTimer = (tower._incomeTimer || 0) + delta;
+
+    if (baseIncome > 0 && tower._incomeTimer >= interval) {
+      const cycles = Math.floor(tower._incomeTimer / interval);
+      tower._incomeTimer -= cycles * interval;
+      this.addCash(
+        baseIncome * cycles,
+        "tower-income",
+        tower
+      );
+      tower.totalCash += baseIncome * cycles;
+    }
+
+    if (attack.income > 0 && tower._incomeTimer <= 0) {
+      this.addCash(attack.income, "special-income", tower);
+    }
+  }
+
+  registerDamage(ownerId, damage, destroyed) {
+    if (!damage) {
+      return;
+    }
+
+    this.stats.damage += damage;
+
+    const owner = this.towers.find(
+      (tower) => tower.id === ownerId
+    );
+
+    if (owner) {
+      owner.totalDamage += damage;
+
+      if (destroyed) {
+        owner.totalPops += 1;
+      }
+
+      this.emitSelectionIfNeeded(owner.id);
+      return;
+    }
+
+    const hero = this.heroes.find(
+      (unit) => unit.id === ownerId
+    );
+
+    if (hero) {
+      hero.totalDamage += damage;
+
+      if (destroyed) {
+        hero.totalPops += 1;
+      }
+    }
+  }
+
+  addCash(amount, source = "unknown", owner = null) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+
+    this.cash += amount;
+    this.stats.roundCash += amount;
+    this.stats.lifetimeCash += amount;
+
+    if (owner) {
+      owner.totalCash = (owner.totalCash || 0) + amount;
+    }
+
+    this.emit("hud", this.hud());
+  }
+
+  spawnBloon(type, options = {}) {
+    if (!this.path) {
+      return null;
+    }
+
+    const roundScale = Math.max(
+      1,
+      this.round > 80
+        ? 1 + Math.pow((this.round - 80) / 20, 1.22)
+        : 1
+    );
+
+    const bloon = new Bloon({
+      id: this.ids.next(),
+      type,
+      path: this.path,
+      progress: 0,
+      healthMultiplier:
+        this.difficulty.health * roundScale,
+      fortified: options.fortified
+    });
+
+    this.bloons.push(bloon);
+    return bloon;
+  }
+
+  start(mapId, options = {}) {
+    const map = MAPS.find(
+      (candidate) => candidate.id === mapId
+    );
+
+    if (!map) {
+      throw new Error("Unknown map: " + mapId);
+    }
+
+    this.map = deepClone(map);
+    this.sandbox = Boolean(options.sandbox);
+
+    this.difficultyId = options.difficulty || "normal";
+    this.difficulty =
+      DIFFICULTIES[this.difficultyId] ||
+      DIFFICULTIES.normal;
+
+    this.resize();
+
+    this.path = new RoutePath(
+      this.map.path.map(([x, y]) => [
+        x * this.width,
+        y * this.height
+      ]),
+      Math.max(34, this.width * 0.055)
+    );
+
+    this.cash = this.sandbox
+      ? 999999
+      : Math.round(
+          this.map.startCash *
+          this.difficulty.cash
+        );
+
+    this.lives = this.sandbox
+      ? 999999
+      : Math.round(
+          this.map.lives *
+          this.difficulty.lives
+        );
+
+    this.round = 0;
+    this.towers = [];
+    this.heroes = [];
+    this.bloons = [];
+    this.projectiles = [];
+    this.particles = [];
+    this.floaters = [];
+
+    this.selectedId = null;
+    this.pendingTower = null;
+    this.buildMode = true;
+    this.multiPlace = false;
+
+    this.rounds = new RoundController(this);
+    this.rounds.auto = false;
+
+    this.stats = {
+      games: (this.save.profile().games || 0) + 1,
+      wins: this.save.profile().wins || 0,
+      lifetimePops: this.save.profile().lifetimePops || 0,
+      lifetimeCash: this.save.profile().lifetimeCash || 0,
+      roundPops: 0,
+      roundCash: 0,
+      damage: 0
+    };
+
+    this.state = GAME_STATES.RUNNING;
+
+    this.emit("state", this.state);
+    this.emit("mapList", MAPS);
+    this.emit("towerMenu", Object.values(TOWERS));
+    this.emit("selection", null);
+    this.emit("hud", this.hud());
+    this.emit("toast", {
+      text: this.map.name + " ready.",
+      kind: "info"
+    });
+
+    this.unlockStarterProgress();
+
+    return true;
+  }
+
+  unlockStarterProgress() {
+    const profile = this.save.profile();
+    const starterIds = Object.keys(TOWERS).slice(0, 6);
+
+    profile.unlockedTowers = Array.from(
+      new Set([
+        ...profile.unlockedTowers,
+        ...starterIds
+      ])
+    );
+
+    this.save.saveProfile(profile);
+  }
+
+  stop() {
+    this.state = GAME_STATES.MENU;
+    this.towers = [];
+    this.heroes = [];
+    this.bloons = [];
+    this.projectiles = [];
+    this.emit("state", this.state);
+  }
+
+  startRound() {
+    if (this.state === GAME_STATES.PAUSED) {
+      this.togglePause();
+    }
+
+    if (this.state !== GAME_STATES.RUNNING) {
+      return false;
+    }
+
+    if (this.rounds.active) {
+      return false;
+    }
+
+    const started = this.rounds.start();
+
+    if (started) {
+      this.round = this.rounds.current;
+      this.emit("hud", this.hud());
+    }
+
+    return started;
+  }
+
+  toggleAutoRounds() {
+    this.autoRounds = !this.autoRounds;
+    this.rounds.auto = this.autoRounds;
+
+    this.emit("toast", {
+      text: "Auto-rounds " + (
+        this.autoRounds ? "enabled" : "disabled"
+      ) + ".",
+      kind: "info"
+    });
+  }
+
+  cycleSpeed() {
+    const index = SPEEDS.indexOf(this.speed);
+    this.speed = SPEEDS[(index + 1) % SPEEDS.length];
+    this.emit("hud", this.hud());
+  }
+
+  togglePause() {
+    if (
+      this.state !== GAME_STATES.RUNNING &&
+      this.state !== GAME_STATES.PAUSED
+    ) {
+      return;
+    }
+
+    this.state =
+      this.state === GAME_STATES.RUNNING
+        ? GAME_STATES.PAUSED
+        : GAME_STATES.RUNNING;
+
+    this.emit("state", this.state);
+  }
+
+  toggleBuildMode() {
+    this.buildMode = !this.buildMode;
+
+    if (!this.buildMode) {
+      this.pendingTower = null;
+    }
+
+    if (this.buildMode) {
+      this.emit("toast", {
+        text: "Build mode enabled.",
+        kind: "info"
+      });
+    }
+  }
+
+  toggleMultiPlace() {
+    this.multiPlace = !this.multiPlace;
+
+    if (!this.multiPlace) {
+      this.pendingTower = null;
+    }
+
+    this.emit("toast", {
+      text: "Multi-place " + (
+        this.multiPlace ? "enabled" : "disabled"
+      ) + ".",
+      kind: "info"
+    });
+  }
+
+  selectBuildTower(towerId) {
+    if (!TOWERS[towerId]) {
+      return;
+    }
+
+    this.pendingTower = towerId;
+    this.buildMode = true;
+    this.selectedId = null;
+    this.emit("selection", null);
+  }
+
+  canPlace(x, y, towerId) {
+    const config = TOWERS[towerId];
+
+    if (!config) {
+      return false;
+    }
+
+    if (!this.map) {
+      return false;
+    }
+
+    if (
+      this.path.isPointNearPath(
+        x,
+        y,
+        Math.max(8, this.width * 0.008)
+      )
+    ) {
+      return false;
+    }
+
+    const insideZone = this.map.buildZones.some(
+      (zone) =>
+        x >= zone.x * this.width &&
+        x <= (zone.x + zone.w) * this.width &&
+        y >= zone.y * this.height &&
+        y <= (zone.y + zone.h) * this.height
+    );
+
+    if (!insideZone && !this.sandbox) {
+      return false;
+    }
+
+    const overlapsTower = this.towers.some(
+      (tower) =>
+        distance(x, y, tower.x, tower.y) <
+        Math.max(20, this.width * 0.024)
+    );
+
+    const overlapsHero = this.heroes.some(
+      (hero) =>
+        distance(x, y, hero.x, hero.y) <
+        Math.max(20, this.width * 0.024)
+    );
+
+    if (overlapsTower || overlapsHero) {
+      return false;
+    }
+
+    return true;
+  }
+
+  placePendingTower(x, y) {
+    if (!this.pendingTower) {
+      return false;
+    }
+
+    const config = TOWERS[this.pendingTower];
+    const cost = Math.round(
+      config.cost * this.difficulty.cash
+    );
+
+    if (!this.sandbox && this.cash < cost) {
+      this.emit("toast", {
+        text: "Not enough cash.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.canPlace(x, y, this.pendingTower)) {
+      this.emit("toast", {
+        text: "That location is unavailable.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.sandbox) {
+      this.cash -= cost;
+    }
+
+    const tower = new Tower({
+      id: this.ids.next(),
+      type: this.pendingTower,
+      x,
+      y,
+      config
+    });
+
+    this.towers.push(tower);
+    this.selectedId = tower.id;
+
+    this.emit("toast", {
+      text: config.name + " deployed.",
+      kind: "info"
+    });
+
+    this.emitSelectionIfNeeded(tower.id);
+
+    if (!this.multiPlace) {
+      this.pendingTower = null;
+    }
+
+    return true;
+  }
+
+  placeHero(heroId, x, y) {
+    const config = HEROES.find(
+      (hero) => hero.id === heroId
+    );
+
+    if (!config) {
+      return false;
+    }
+
+    if (this.heroes.some(
+      (hero) => hero.heroId === heroId
+    )) {
+      this.emit("toast", {
+        text: config.name + " is already deployed.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.canPlace(x, y, "sharpshooter")) {
+      return false;
+    }
+
+    if (!this.sandbox && this.cash < config.cost) {
+      return false;
+    }
+
+    if (!this.sandbox) {
+      this.cash -= config.cost;
+    }
+
+    const hero = new HeroUnit({
+      id: this.ids.next(),
+      heroId,
+      x,
+      y,
+      config
+    });
+
+    this.heroes.push(hero);
+    this.selectedId = hero.id;
+    this.pendingTower = null;
+    this.emitSelectionIfNeeded(hero.id);
+    return true;
+  }
+
+  selectEntity(id) {
+    if (
+      !this.towers.some((tower) => tower.id === id) &&
+      !this.heroes.some((hero) => hero.id === id)
+    ) {
+      this.selectedId = null;
+      this.emit("selection", null);
+      return;
+    }
+
+    this.pendingTower = null;
+    this.buildMode = false;
+    this.selectedId = id;
+    this.emitSelectionIfNeeded(id);
+  }
+
+  clearSelection() {
+    this.selectedId = null;
+    this.emit("selection", null);
+  }
+
+  selectEntityAt(x, y) {
+    const units = [
+      ...this.towers,
+      ...this.heroes
+    ];
+
+    let best = null;
+    let bestDistance = Infinity;
+
+    for (const unit of units) {
+      const gap = distance(
+        x,
+        y,
+        unit.x,
+        unit.y
+      );
+
+      if (
+        gap <= Math.max(25, this.width * 0.035) &&
+        gap < bestDistance
+      ) {
+        best = unit;
+        bestDistance = gap;
+      }
+    }
+
+    if (best) {
+      this.selectEntity(best.id);
+    } else if (!this.buildMode) {
+      this.clearSelection();
+    }
+  }
+
+  handlePointer(point) {
+    if (this.state !== GAME_STATES.RUNNING) {
+      return;
+    }
+
+    if (this.buildMode && this.pendingTower) {
+      this.placePendingTower(
+        point.x,
+        point.y
+      );
+      return;
+    }
+
+    this.selectEntityAt(
+      point.x,
+      point.y
+    );
+  }
+
+  handleKey(event) {
+    const key = event.key.toLowerCase();
+
+    if (key === " " || key === "spacebar") {
+      event.preventDefault();
+      if (this.rounds.active) {
+        this.togglePause();
+      } else {
+        this.startRound();
+      }
+      return;
+    }
+
+    if (key === "b") {
+      this.toggleBuildMode();
+      return;
+    }
+
+    if (key === "m") {
+      this.toggleMultiPlace();
+      return;
+    }
+
+    if (key === "q") {
+      const unit = this.selectedTower();
+      if (unit instanceof Tower) {
+        unit.cycleTarget();
+        this.emitSelectionIfNeeded(unit.id);
+      }
+      return;
+    }
+
+    if (key === "e") {
+      if (this.selectedId) {
+        this.activateAbility(this.selectedId);
+      }
+      return;
+    }
+
+    if (key === "s") {
+      this.sellSelected();
+      return;
+    }
+
+    if (["1", "2", "3"].includes(key)) {
+      const path = Number(key) - 1;
+      if (this.selectedId) {
+        const tower = this.towers.find(
+          (item) => item.id === this.selectedId
+        );
+
+        if (tower) {
+          const nextTier =
+            tower.pathLevels[path] + 1;
+          this.buyUpgrade(
+            tower.id,
+            path,
+            nextTier
+          );
+        }
+      }
+    }
+  }
+
+  selectedTower() {
+    return this.towers.find(
+      (tower) => tower.id === this.selectedId
+    ) || null;
+  }
+
+  selectedUnit() {
+    return (
+      this.towers.find(
+        (tower) => tower.id === this.selectedId
+      ) ||
+      this.heroes.find(
+        (hero) => hero.id === this.selectedId
+      ) ||
+      null
+    );
+  }
+
+  buyUpgrade(entityId, path, tier) {
+    const tower = this.towers.find(
+      (item) => item.id === entityId
+    );
+
+    if (!tower) {
+      return false;
+    }
+
+    const result = tower.buyUpgrade(
+      path,
+      tier,
+      this.sandbox
+        ? Infinity
+        : this.cash
+    );
+
+    if (!result.ok) {
+      this.emit("toast", {
+        text:
+          result.reason === "cash"
+            ? "Not enough cash."
+            : "That crosspath is unavailable.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.sandbox) {
+      this.cash -= result.cost;
+    }
+
+    this.recalculateBuffs();
+
+    this.emit("toast", {
+      text:
+        tower.name +
+        " → " +
+        tower.config.paths[path][tier - 1].name,
+      kind: "upgrade"
+    });
+
+    this.emitSelectionIfNeeded(tower.id);
+    return true;
+  }
+
+  activateAbility(entityId) {
+    const hero = this.heroes.find(
+      (unit) => unit.id === entityId
+    );
+
+    if (hero) {
+      if (hero.activate(this)) {
+        this.emit("toast", {
+          text: hero.name + " ability activated.",
+          kind: "ability"
+        });
+      }
+      this.emitSelectionIfNeeded(hero.id);
+      return;
+    }
+
+    const tower = this.towers.find(
+      (unit) => unit.id === entityId
+    );
+
+    if (!tower || !tower.abilityCooldown.ready()) {
+      return;
+    }
+
+    tower.abilityCooldown.reset(
+      tower.type === "engineer" ? 24 : 18
+    );
+    tower.abilityActive = 8;
+    tower.abilityMultiplier = 2.2;
+
+    if (tower.type === "village") {
+      for (const other of this.towers) {
+        other.buff.attackSpeed *= 0.55;
+      }
+      this.emit("toast", {
+        text: "Command burst active.",
+        kind: "ability"
+      });
+      return;
+    }
+
+    if (
+      tower.type === "sniper" ||
+      tower.type === "boat"
+    ) {
+      this.addCash(150, "ability", tower);
+      this.emit("toast", {
+        text: "Supply package received.",
+        kind: "money"
+      });
+      return;
+    }
+
+    if (tower.type === "cannon") {
+      for (const bloon of this.bloons) {
+        if (bloon.alive) {
+          bloon.applyStun(2.5);
+        }
+      }
+      return;
+    }
+
+    for (const bloon of this.bloons) {
+      if (bloon.alive) {
+        bloon.applySlow(0.65, 3.5);
+      }
+    }
+
+    this.emitSelectionIfNeeded(tower.id);
+  }
+
+  sellSelected() {
+    const index = this.towers.findIndex(
+      (tower) => tower.id === this.selectedId
+    );
+
+    if (index < 0) {
+      return false;
+    }
+
+    const tower = this.towers[index];
+    const value = Math.round(
+      tower.totalSpent * 0.70
+    );
+
+    this.addCash(
+      value,
+      "sell"
+    );
+
+    this.towers.splice(index, 1);
+    this.selectedId = null;
+    this.emit("selection", null);
+    this.emit("toast", {
+      text: "Sold for $" + value + ".",
+      kind: "money"
+    });
+
+    return true;
+  }
+
+  upgradeMode() {
+    this.buildMode = false;
+
+    const tower = this.selectedTower();
+
+    if (tower) {
+      this.emit("toast", {
+        text: "Use 1, 2, or 3 to buy the next path upgrade.",
+        kind: "info"
+      });
+    }
+  }
+
+  ascendTower(entityId) {
+    const center = this.towers.find(
+      (tower) => tower.id === entityId
+    );
+
+    if (!center || center.ascended) {
+      return false;
+    }
+
+    if (
+      center.pathLevels.filter(
+        (value) => value === 5
+      ).length < 1
+    ) {
+      return false;
+    }
+
+    const candidates = this.towers.filter(
+      (tower) =>
+        tower.type === center.type &&
+        tower.pathLevels.some(
+          (value) => value === 5
+        ) &&
+        tower.id !== center.id &&
+        !tower.ascended
+    );
+
+    if (candidates.length < 2) {
+      this.emit("toast", {
+        text: "Requires three Tier 5 towers of this type.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    const degreeBase =
+      center.totalSpent +
+      candidates[0].totalSpent +
+      candidates[1].totalSpent;
+
+    const cost = 25000;
+
+    if (!this.sandbox && this.cash < cost) {
+      this.emit("toast", {
+        text: "Not enough cash to ascend.",
+        kind: "danger"
+      });
+      return false;
+    }
+
+    if (!this.sandbox) {
+      this.cash -= cost;
+    }
+
+    center.ascended = true;
+    center.ascensionDegree = clamp(
+      Math.floor(
+        degreeBase / 5000
+      ),
+      1,
+      100
+    );
+
+    for (const sacrificed of candidates.slice(0, 2)) {
+      const index = this.towers.findIndex(
+        (tower) => tower.id === sacrificed.id
+      );
+      if (index >= 0) {
+        this.towers.splice(index, 1);
+      }
+    }
+
+    this.emit("toast", {
+      text:
+        center.name +
+        " ascended to degree " +
+        center.ascensionDegree + ".",
+      kind: "ability"
+    });
+
+    this.emitSelectionIfNeeded(center.id);
+    return true;
+  }
+
+  recalculateBuffs() {
+    for (const tower of this.towers) {
+      tower.buff = {
+        range: 0,
+        damage: 0,
+        pierce: 0,
+        attackSpeed: 1,
+        detectHidden: false,
+        breakArmor: false
+      };
+    }
+
+    const villages = this.towers.filter(
+      (tower) => tower.type === "village"
+    );
+
+    for (const village of villages) {
+      const radiusMultiplier =
+        village.pathLevels[0] >= 4
+          ? 1.75
+          : 1;
+
+      const radius =
+        village.getAttackData().range *
+        radiusMultiplier;
+
+      for (const other of this.towers) {
+        if (
+          other === village ||
+          distance(
+            village.x,
+            village.y,
+            other.x,
+            other.y
+          ) > radius
+        ) {
+          continue;
+        }
+
+        other.buff.range = Math.max(
+          other.buff.range,
+          0.10 + village.pathLevels[0] * 0.02
+        );
+
+        if (village.pathLevels[0] >= 2) {
+          other.buff.detectHidden = true;
+        }
+
+        if (village.pathLevels[2] >= 2) {
+          other.buff.attackSpeed *= 0.92;
+        }
+
+        if (village.pathLevels[2] >= 4) {
+          other.buff.damage = Math.max(
+            other.buff.damage,
+            0.15
+          );
+        }
+      }
+    }
+
+    for (const alchemist of this.towers.filter(
+      (tower) => tower.type === "alchemist"
+    )) {
+      if (alchemist.pathLevels[0] < 3) {
+        continue;
+      }
+
+      for (const other of this.towers) {
+        if (
+          other === alchemist ||
+          distance(
+            alchemist.x,
+            alchemist.y,
+            other.x,
+            other.y
+          ) > 95
+        ) {
+          continue;
+        }
+
+        other.buff.damage = Math.max(
+          other.buff.damage,
+          alchemist.pathLevels[0] >= 4 ? 0.35 : 0.20
+        );
+      }
+    }
+
+    for (const hero of this.heroes) {
+      if (
+        hero.heroId !== "forge" ||
+        hero.level < 5
+      ) {
+        continue;
+      }
+
+      for (const tower of this.towers) {
+        if (
+          distance(
+            hero.x,
+            hero.y,
+            tower.x,
+            tower.y
+          ) <= 120
+        ) {
+          tower.buff.attackSpeed *=
+            hero.level >= 10 ? 0.78 : 0.88;
+        }
+      }
+    }
+  }
+
+  spawnPopParticles(x, y, color) {
+    for (let index = 0; index < 7; index += 1) {
+      const angle =
+        Math.PI * 2 * (index / 7);
+      const speed =
+        35 + index * 7;
+
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.45,
+        maxLife: 0.45,
+        size: 2 + index % 3,
+        color
+      });
+    }
+  }
+
+  updateParticles(delta) {
+    for (const particle of this.particles) {
+      particle.life -= delta;
+      particle.x += particle.vx * delta;
+      particle.y += particle.vy * delta;
+      particle.vx *= Math.pow(0.06, delta);
+      particle.vy *= Math.pow(0.06, delta);
+    }
+
+    this.particles = this.particles.filter(
+      (particle) => particle.life > 0
+    );
+  }
+
+  cleanup() {
+    this.towers = this.towers.filter(
+      (tower) => Number.isFinite(tower.x)
+    );
+
+    this.heroes = this.heroes.filter(
+      (hero) => Number.isFinite(hero.x)
+    );
+
+    this.bloons = this.bloons.filter(
+      (bloon) => bloon.alive && bloon.progress <= 1
+    );
+  }
+
+  emitSelectionIfNeeded(id) {
+    if (this.selectedId === id) {
+      this.emit(
+        "selection",
+        this.selectionView(id)
+      );
+    }
+  }
+
+  selectionView(id = this.selectedId) {
+    const tower = this.towers.find(
+      (item) => item.id === id
+    );
+
+    if (tower) {
+      return {
+        type: "tower",
+        id: tower.id,
+        name: tower.name,
+        tier: tower.tier,
+        targetMode: tower.targetMode,
+        pathLevels: [...tower.pathLevels],
+        attack: tower.getAttackData(),
+        pops: tower.totalPops,
+        damage: tower.totalDamage,
+        cash: tower.totalCash,
+        ascended: tower.ascended,
+        ascensionDegree: tower.ascensionDegree,
+        paths: tower.config.paths,
+        canAscend: (
+          tower.pathLevels.includes(5) &&
+          this.towers.filter(
+            (candidate) =>
+              candidate.type === tower.type &&
+              candidate.id !== tower.id &&
+              candidate.pathLevels.includes(5) &&
+              !candidate.ascended
+          ).length >= 2
+        )
+      };
+    }
+
+    const hero = this.heroes.find(
+      (item) => item.id === id
+    );
+
+    if (hero) {
+      return {
+        type: "hero",
+        id: hero.id,
+        name: hero.name,
+        tier: hero.level,
+        targetMode: hero.targetMode,
+        xp: hero.xp,
+        attack: hero.attack,
+        pops: hero.totalPops,
+        damage: hero.totalDamage,
+        abilityReady: hero.abilityCooldown.ready(),
+        abilityCooldown: hero.abilityCooldown.remaining,
+        levels: hero.config.levels
+      };
+    }
+
+    return null;
+  }
+
+  snapshot() {
+    return {
+      version: 1,
+      timestamp: Date.now(),
+      state: this.state,
+      mapId: this.map?.id || null,
+      difficultyId: this.difficultyId,
+      sandbox: this.sandbox,
+      cash: this.cash,
+      lives: this.lives,
+      round: this.rounds.current,
+      roundActive: this.rounds.active,
+      autoRounds: this.autoRounds,
+      speed: this.speed,
+      towers: this.towers.map(
+        (tower) => tower.serialize()
+      ),
+      heroes: this.heroes.map(
+        (hero) => hero.serialize()
+      ),
+      statistics: deepClone(this.stats)
+    };
+  }
+
+  hud() {
+    const boss = this.bloons.find(
+      (bloon) => bloon.data.boss
+    );
+
+    return {
+      cash: Math.floor(this.cash),
+      lives: Math.max(0, Math.floor(this.lives)),
+      round: this.rounds.current,
+      active: this.rounds.active,
+      speed: this.speed,
+      autoRounds: this.autoRounds,
+      state: this.state,
+      boss: boss
+        ? {
+            name: boss.data.name,
+            health: Math.ceil(boss.health),
+            maxHealth: Math.ceil(boss.maxHealth),
+            progress: boss.progress
+          }
+        : null
+    };
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    this.width = Math.max(320, rect.width || window.innerWidth);
+    this.height = Math.max(240, rect.height || window.innerHeight);
+    this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+    this.canvas.width =
+      Math.floor(this.width * this.dpr);
+    this.canvas.height =
+      Math.floor(this.height * this.dpr);
+
+    this.ctx.setTransform(
+      this.dpr,
+      0,
+      0,
+      this.dpr,
+      0,
+      0
+    );
+
+    if (this.map) {
+      this.path = new RoutePath(
+        this.map.path.map(([x, y]) => [
+          x * this.width,
+          y * this.height
+        ]),
+        Math.max(34, this.width * 0.055)
+      );
+    }
+  }
+
+  pointerPoint(event) {
+    const rect =
+      this.canvas.getBoundingClientRect();
+
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+  }
+
+  render() {
+    const ctx = this.ctx;
+
+    ctx.clearRect(
+      0,
+      0,
+      this.width,
+      this.height
+    );
+
+    this.drawBackground(ctx);
+
+    if (!this.map || !this.path) {
+      this.drawIdleField(ctx);
+      return;
+    }
+
+    this.drawMap(ctx);
+    this.drawBuildZones(ctx);
+    this.path.draw(ctx);
+    this.drawTowers(ctx);
+    this.drawHeroes(ctx);
+    this.drawBloons(ctx);
+    this.drawProjectiles(ctx);
+    this.drawParticles(ctx);
+
+    if (
+      this.lastPointer.inside &&
+      this.pendingTower &&
+      this.buildMode
+    ) {
+      this.drawPlacementGhost(ctx);
+    }
+
+    if (this.selectedId) {
+      this.drawSelectionRange(ctx);
+    }
+  }
+
+  drawBackground(ctx) {
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        0,
+        this.height
+      );
+
+    gradient.addColorStop(0, "#101b20");
+    gradient.addColorStop(1, "#081016");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(
+      0,
+      0,
+      this.width,
+      this.height
+    );
+  }
+
+  drawIdleField(ctx) {
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,.025)";
+    for (
+      let x = 0;
+      x < this.width;
+      x += 42
+    ) {
+      for (
+        let y = 0;
+        y < this.height;
+        y += 42
+      ) {
+        ctx.fillRect(
+          x + 1,
+          y + 1,
+          1,
+          1
+        );
+      }
+    }
+    ctx.restore();
+  }
+
+  drawMap(ctx) {
+    ctx.save();
+
+    if (this.map.water) {
+      ctx.fillStyle = "#0b3543";
+      ctx.fillRect(
+        this.width * 0.34,
+        0,
+        this.width * 0.25,
+        this.height
+      );
+
+      ctx.strokeStyle =
+        "rgba(100,220,255,.13)";
+      ctx.lineWidth = 2;
+
+      for (
+        let y = 10;
+        y < this.height;
+        y += 26
+      ) {
+        ctx.beginPath();
+        ctx.moveTo(
+          this.width * 0.34,
+          y
+        );
+        ctx.quadraticCurveTo(
+          this.width * 0.46,
+          y - 5,
+          this.width * 0.59,
+          y
+        );
+        ctx.stroke();
+      }
+    }
+
+    ctx.fillStyle = "#183025";
+
+    for (
+      let x = 0;
+      x < this.width;
+      x += 76
+    ) {
+      for (
+        let y = 0;
+        y < this.height;
+        y += 76
+      ) {
+        ctx.fillRect(
+          x,
+          y,
+          75,
+          75
+        );
+      }
+    }
+
+    ctx.restore();
+  }
+
+  drawBuildZones(ctx) {
+    if (this.buildMode) {
+      ctx.save();
+
+      for (const zone of this.map.buildZones) {
+        ctx.fillStyle =
+          "rgba(95,230,167,.045)";
+        ctx.strokeStyle =
+          "rgba(95,230,167,.09)";
+        ctx.lineWidth = 1;
+
+        ctx.fillRect(
+          zone.x * this.width,
+          zone.y * this.height,
+          zone.w * this.width,
+          zone.h * this.height
+        );
+
+        ctx.strokeRect(
+          zone.x * this.width,
+          zone.y * this.height,
+          zone.w * this.width,
+          zone.h * this.height
+        );
+      }
+
+      ctx.restore();
+    }
+  }
+
+  drawTowers(ctx) {
+    for (const tower of this.towers) {
+      const selected =
+        tower.id === this.selectedId;
+
+      ctx.save();
+
+      if (selected) {
+        ctx.beginPath();
+        ctx.arc(
+          tower.x,
+          tower.y,
+          22,
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle =
+          "rgba(255,209,102,.12)";
+        ctx.fill();
+      }
+
+      const hue =
+        tower.config.category === "military"
+          ? "#4f96d7"
+          : tower.config.category === "magic"
+            ? "#8f72d8"
+            : tower.config.category === "support"
+              ? "#4ca783"
+              : "#c4a85e";
+
+      ctx.fillStyle = hue;
+      ctx.strokeStyle =
+        selected ? "#ffd166" : "#111b22";
+      ctx.lineWidth = selected ? 3 : 2;
+
+      ctx.beginPath();
+      ctx.arc(
+        tower.x,
+        tower.y,
+        16,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.stroke();
+
+      if (tower.ascended) {
+        ctx.beginPath();
+        ctx.arc(
+          tower.x,
+          tower.y,
+          20,
+          0,
+          Math.PI * 2
+        );
+        ctx.strokeStyle =
+          "rgba(255,209,102,.8)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#0a0e12";
+      ctx.font = "900 12px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        tower.config.icon,
+        tower.x,
+        tower.y
+      );
+
+      ctx.restore();
+    }
+  }
+
+  drawHeroes(ctx) {
+    for (const hero of this.heroes) {
+      const selected =
+        hero.id === this.selectedId;
+
+      ctx.save();
+
+      ctx.fillStyle =
+        hero.heroId === "volt"
+          ? "#55ccff"
+          : hero.heroId === "bramble"
+            ? "#68d391"
+            : hero.heroId === "forge"
+              ? "#e3a04f"
+              : "#e9ddff";
+
+      ctx.strokeStyle =
+        selected
+          ? "#ffd166"
+          : "#0a0f14";
+      ctx.lineWidth =
+        selected ? 3 : 2;
+
+      ctx.beginPath();
+      ctx.arc(
+        hero.x,
+        hero.y,
+        18,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#10161c";
+      ctx.font =
+        "900 10px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        hero.name[0],
+        hero.x,
+        hero.y
+      );
+
+      ctx.fillStyle = "#e8edf3";
+      ctx.font =
+        "800 9px system-ui";
+      ctx.fillText(
+        "Lv " + hero.level,
+        hero.x,
+        hero.y + 29
+      );
+
+      ctx.restore();
+    }
+  }
+
+  drawBloons(ctx) {
+    for (const bloon of this.bloons) {
+      const point = bloon.position;
+      const color =
+        COLORS[bloon.type] ||
+        "#fff";
+
+      ctx.save();
+
+      ctx.translate(
+        point.x,
+        point.y
+      );
+
+      const scale =
+        bloon.data.boss
+          ? 1.55
+          : bloon.data.layer >= 12
+            ? 1.22
+            : 1;
+
+      ctx.scale(
+        scale,
+        scale
+      );
+
+      ctx.fillStyle = color;
+      ctx.strokeStyle =
+        bloon.fortified
+          ? "#f2d6a0"
+          : "#0a0f12";
+      ctx.lineWidth =
+        bloon.fortified ? 3 : 1.5;
+
+      ctx.beginPath();
+
+      if (bloon.data.boss) {
+        ctx.roundRect(
+          -18,
+          -13,
+          36,
+          26,
+          8
+        );
+      } else if (bloon.data.layer >= 12) {
+        ctx.ellipse(
+          0,
+          0,
+          22,
+          13,
+          0,
+          0,
+          Math.PI * 2
+        );
+      } else {
+        ctx.arc(
+          0,
+          0,
+          8,
+          0,
+          Math.PI * 2
+        );
+      }
+
+      ctx.fill();
+      ctx.stroke();
+
+      if (bloon.status.slow > 0) {
+        ctx.strokeStyle =
+          "rgba(100,210,255,.8)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(
+          0,
+          0,
+          12,
+          0,
+          Math.PI * 2
+        );
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      const barWidth =
+        bloon.data.boss
+          ? 70
+          : bloon.data.layer >= 12
+            ? 36
+            : 16;
+
+      const healthFraction =
+        clamp(
+          bloon.health /
+          bloon.maxHealth,
+          0,
+          1
+        );
+
+      ctx.fillStyle =
+        "rgba(0,0,0,.5)";
+      ctx.fillRect(
+        point.x - barWidth / 2,
+        point.y - (
+          bloon.data.boss ? 34 : 17
+        ),
+        barWidth,
+        3
+      );
+
+      ctx.fillStyle =
+        "#63e6a7";
+      ctx.fillRect(
+        point.x - barWidth / 2,
+        point.y - (
+          bloon.data.boss ? 34 : 17
+        ),
+        barWidth * healthFraction,
+        3
+      );
+    }
+  }
+
+  drawProjectiles(ctx) {
+    for (const projectile of this.projectiles) {
+      ctx.save();
+
+      ctx.fillStyle =
+        projectile.color ||
+        "#fff";
+
+      ctx.beginPath();
+      ctx.arc(
+        projectile.x,
+        projectile.y,
+        projectile.radius,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  drawParticles(ctx) {
+    for (const particle of this.particles) {
+      ctx.save();
+
+      ctx.globalAlpha =
+        clamp(
+          particle.life /
+          particle.maxLife,
+          0,
+          1
+        );
+
+      ctx.fillStyle =
+        particle.color;
+
+      ctx.fillRect(
+        particle.x,
+        particle.y,
+        particle.size,
+        particle.size
+      );
+
+      ctx.restore();
+    }
+  }
+
+  drawSelectionRange(ctx) {
+    const unit = this.selectedUnit();
+
+    if (!unit) {
+      return;
+    }
+
+    const radius =
+      unit instanceof Tower
+        ? unit.getAttackData().range
+        : unit.attack.range;
+
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.arc(
+      unit.x,
+      unit.y,
+      Math.min(
+        radius,
+        Math.max(
+          this.width,
+          this.height
+        )
+      ),
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fillStyle =
+      "rgba(255,209,102,.035)";
+    ctx.fill();
+
+    ctx.strokeStyle =
+      "rgba(255,209,102,.25)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  drawPlacementGhost(ctx) {
+    const config =
+      TOWERS[this.pendingTower];
+
+    if (!config) {
+      return;
+    }
+
+    const legal =
+      this.canPlace(
+        this.lastPointer.x,
+        this.lastPointer.y,
+        this.pendingTower
+      );
+
+    const radius =
+      config.base.range;
+
+    ctx.save();
+
+    ctx.globalAlpha = 0.70;
+    ctx.fillStyle =
+      legal
+        ? "rgba(95,230,167,.24)"
+        : "rgba(255,107,107,.24)";
+    ctx.strokeStyle =
+      legal
+        ? "rgba(95,230,167,.78)"
+        : "rgba(255,107,107,.78)";
+
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(
+      this.lastPointer.x,
+      this.lastPointer.y,
+      16,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(
+      this.lastPointer.x,
+      this.lastPointer.y,
+      radius,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle =
+      legal
+        ? "rgba(95,230,167,.035)"
+        : "rgba(255,107,107,.035)";
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
