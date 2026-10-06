@@ -238,6 +238,7 @@ class Projectile {
     this.source = source;
     this.targetId = target?.id ?? null;
     this.stats = { ...stats };
+    this.hitIds = new Set(target ? [target.id] : []);
     this.age = 0;
     this.life = 3;
     this.dead = false;
@@ -283,7 +284,20 @@ class Projectile {
   }
 
   impact(game, target) {
-    const result = target.takeDamage(this.stats.damage, this.stats);
+    if (!target || target.dead || target.leaked) return;
+
+    if (this.stats.shieldBreak > 0 && target.shield > 0) {
+      target.shield = Math.max(0, target.shield - this.stats.shieldBreak);
+    }
+
+    let damage = this.stats.damage;
+    if (this.stats.executeThreshold > 0 && target.hp / Math.max(1, target.maxHp) <= this.stats.executeThreshold) {
+      damage = Math.max(damage, target.hp);
+    } else if (this.stats.critChance > 0 && Math.random() < this.stats.critChance) {
+      damage *= this.stats.critMultiplier ?? 2;
+    }
+
+    const result = target.takeDamage(damage, this.stats);
     this.source.totalDamage += result.damage;
     game.statsThisRun.damageDealt += result.damage;
     if (result.killed) this.source.killCount += 1;
@@ -311,6 +325,26 @@ class Projectile {
 
     if (this.stats.split && result.killed) {
       game.spawnFragments(target, this.stats.split);
+    }
+
+    if ((this.stats.bounce ?? 0) > 0) {
+      const candidates = game.spatial.queryCircle(target.x, target.y, this.stats.aoeRadius ?? 80)
+        .filter((candidate) => candidate !== target && !candidate.dead && !candidate.leaked)
+        .filter((candidate) => !this.hitIds.has(candidate.id))
+        .filter((candidate) => candidate.canBeTargetedBy(this.source))
+        .sort((a, b) => distance(target, a) - distance(target, b));
+
+      if (candidates.length > 0) {
+        const next = candidates[0];
+        this.hitIds.add(next.id);
+        const bounceProjectile = new Projectile(game, this.source, next, {
+          ...this.stats,
+          damage: this.stats.damage * 0.72,
+          bounce: this.stats.bounce - 1
+        });
+        bounceProjectile.hitIds = new Set(this.hitIds);
+        game.projectiles.push(bounceProjectile);
+      }
     }
 
     let remainingPierce = this.stats.pierce ?? 1;
@@ -444,6 +478,7 @@ class Tower {
     playSound("upgrade");
     this.game.emit("towerUpgraded", this);
     this.game.recalculateAuras();
+    this.game.autoSave();
     return { ok:true, upgrade };
   }
 
@@ -609,6 +644,7 @@ class Tower {
     playSound("ability");
     game.emit("abilityUsed", { tower:this, ability, affected });
     game.recalculateAuras();
+    game.autoSave();
     return { ok:true, affected };
   }
 
@@ -648,6 +684,11 @@ class Tower {
         stunDuration: this.stats.stunDuration,
         armorBypass: this.stats.armorBypass,
         resistancePierce: this.stats.resistancePierce,
+        shieldBreak: this.stats.shieldBreak,
+        critChance: this.stats.critChance,
+        critMultiplier: this.stats.critMultiplier,
+        executeThreshold: this.stats.executeThreshold,
+        bounce: this.stats.bounce,
         dot: this.stats.dot,
         splashDamage: this.stats.damage * 0.45,
         aoeRadius: 24 + (this.stats.pierce ?? 0) * 1.2
