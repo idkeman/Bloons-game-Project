@@ -739,6 +739,54 @@ export class HeroUnit extends Tower {
   update(dt){this.recalculate();super.update(dt);}
 }
 
+  draw(ctx,camera){
+    const px=this.x-camera.x;
+    const py=this.y-camera.y;
+    ctx.save();
+    ctx.translate(px,py);
+
+    ctx.shadowBlur=18;
+    ctx.shadowColor=this.def.color;
+    ctx.fillStyle=this.def.color;
+    ctx.strokeStyle='rgba(255,255,255,.8)';
+    ctx.lineWidth=3;
+
+    ctx.beginPath();
+    ctx.arc(0,0,23,0,TAU);
+    ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur=0;
+
+    ctx.fillStyle='rgba(10,20,24,.38)';
+    ctx.beginPath();
+    ctx.arc(0,0,16,0,TAU);
+    ctx.fill();
+
+    ctx.fillStyle='#ffffff';
+    ctx.font='900 18px system-ui';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(this.def.icon,0,1);
+
+    ctx.rotate(this.angle);
+    ctx.strokeStyle='rgba(255,255,255,.55)';
+    ctx.lineWidth=4;
+    ctx.beginPath();
+    ctx.moveTo(12,0);
+    ctx.lineTo(38,0);
+    ctx.stroke();
+
+    if(this.selected===this){
+      ctx.strokeStyle='rgba(255,255,255,.5)';
+      ctx.setLineDash([5,5]);
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(0,0,this.effectiveRange,0,TAU);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
 export class Drone extends Projectile {
   constructor(game,x,y,damage=15){
     super(game,{x,y,vx:0,vy:0,speed:0,radius:7,damage,pierce:3,color:'#a9e5ff',kind:'drone',life:20,homing:true,turnRate:3});this.drone=true;this.angle=0;this.orbitRadius=55;this.orbitSpeed=random(-2,2);
