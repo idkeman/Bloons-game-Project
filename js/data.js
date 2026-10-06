@@ -372,7 +372,119 @@ const makeExtraTower = (spec, i) => {
   };
 };
 
+
 EXTRA_TOWER_SPECS.forEach((spec, i) => TOWERS.push(makeExtraTower(spec, i)));
+
+/*
+ * Every deployable tower has an original active ability.
+ * Abilities are data-driven so the simulation can expose the same interface
+ * for hand-authored and generated tower families without duplicating control flow.
+ */
+const ABILITY_BLUEPRINTS = {
+  economy: {
+    id: "capital-surge",
+    name: "Capital Surge",
+    kind: "cashBurst",
+    cooldown: 42,
+    description: "Immediately converts a portion of the tower's investment into credits."
+  },
+  support: {
+    id: "network-overclock",
+    name: "Network Overclock",
+    kind: "overclock",
+    cooldown: 36,
+    duration: 8,
+    description: "Temporarily accelerates linked defenses."
+  },
+  control: {
+    id: "containment-wave",
+    name: "Containment Wave",
+    kind: "freeze",
+    cooldown: 34,
+    duration: 2.4,
+    description: "Freezes hostile units in the tower's influence and briefly reveals hidden signatures."
+  },
+  energy: {
+    id: "arc-discharge",
+    name: "Arc Discharge",
+    kind: "burst",
+    cooldown: 30,
+    count: 12,
+    description: "Instantly strikes multiple valid targets."
+  },
+  precision: {
+    id: "focus-lock",
+    name: "Focus Lock",
+    kind: "focus",
+    cooldown: 38,
+    duration: 9,
+    description: "Temporarily improves targeting speed and critical potential."
+  },
+  defense: {
+    id: "emergency-barrier",
+    name: "Emergency Barrier",
+    kind: "barrier",
+    cooldown: 48,
+    repair: 8,
+    duration: 7,
+    description: "Restores core integrity and fortifies the tower for a short time."
+  },
+  melee: {
+    id: "surge-drive",
+    name: "Surge Drive",
+    kind: "overclock",
+    cooldown: 28,
+    duration: 6,
+    description: "Temporarily multiplies attack throughput."
+  },
+  trap: {
+    id: "minefield",
+    name: "Minefield",
+    kind: "area",
+    cooldown: 32,
+    duration: 8,
+    description: "Detonates a temporary denial field over the active route."
+  },
+  apex: {
+    id: "cataclysm",
+    name: "Cataclysm",
+    kind: "bossBurst",
+    cooldown: 55,
+    description: "Launches a heavy area strike and applies a long-lived debuff."
+  },
+  utility: {
+    id: "scanline",
+    name: "Scanline",
+    kind: "reveal",
+    cooldown: 24,
+    duration: 10,
+    description: "Reveals hidden hostiles and improves the tower's effective targeting radius."
+  },
+  stealth: {
+    id: "ghost-net",
+    name: "Ghost Net",
+    kind: "reveal",
+    cooldown: 26,
+    duration: 12,
+    description: "Exposes concealed hostiles across the battlefield."
+  },
+  default: {
+    id: "kinetic-surge",
+    name: "Kinetic Surge",
+    kind: "overclock",
+    cooldown: 40,
+    duration: 6,
+    description: "Temporarily improves attack throughput."
+  }
+};
+
+for (const tower of TOWERS) {
+  if (!tower.ability) {
+    tower.ability = {
+      ...clone(ABILITY_BLUEPRINTS[tower.category] ?? ABILITY_BLUEPRINTS.default)
+    };
+  }
+}
 
 export const ENEMIES = [
   { id:"scout", name:"Scout", tier:1, hp:8, speed:62, radius:9, reward:4, damage:1, color:"#d7dbe7", layer:1 },
