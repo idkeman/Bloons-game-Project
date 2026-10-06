@@ -1,0 +1,9 @@
+{
+  "name": "balloon-bastion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/smoke.mjs && node tests/paragon.mjs && node tests/extended.mjs && node tests/all-features.mjs && node tests/format.mjs && node tests/feature-contracts.mjs"
+  }
+}

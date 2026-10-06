@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import { GameEngine } from '../src/engine.js';
+
+const storage=new Map();
+globalThis.localStorage={setItem:(k,v)=>storage.set(k,v),getItem:k=>storage.get(k)??null,removeItem:k=>storage.delete(k)};
+globalThis.performance={now:()=>0};
+globalThis.window={devicePixelRatio:1};
+globalThis.ResizeObserver=class{observe(){}};
+const noop=()=>{};
+const ctx=new Proxy({}, {get:()=>noop});
+const canvas={getContext:()=>ctx,parentElement:{},getBoundingClientRect:()=>({width:1280,height:820}),addEventListener:noop};
+
+const game=new GameEngine(canvas);
+game.startNewGame({mapId:'meadow',difficultyId:'normal',modeId:'standard',heroId:'ember'});
+game.cash=100000;
+const positions=[[75,70],[390,60],[690,70],[1040,80],[140,370],[430,380],[700,370],[1040,400],[310,760],[680,760],[1020,760]];
+for(const [x,y] of positions)game.placeTower('dart',x,y);
+assert.ok(game.towers.length>=10,'expected many towers to place');
+const t=game.towers[0];
+for(let i=0;i<5;i++) assert.equal(t.buyUpgrade(0),true,'top path tier should buy');
+for(let i=0;i<2;i++) assert.equal(t.buyUpgrade(1),true,'middle crosspath should buy through tier 2');
+for(let i=0;i<2;i++) assert.equal(t.buyUpgrade(2),true,'bottom crosspath should buy through tier 2');
+assert.equal(t.levels.join('-'),'5-2-2');
+assert.equal(t.buyUpgrade(1),false,'middle tier 3 must be blocked');
+assert.equal(t.buyUpgrade(2),false,'bottom tier 3 must be blocked');
+const beforeRoundCash=game.cash;
+assert.equal(game.startRound(),true);
+for(let i=0;i<180;i++)game.update(.1);
+assert.ok(game.totalPops>=0);
+assert.ok(game.cash!==undefined);
+game.save();
+const raw=game.load();
+assert.equal(raw.cash,game.cash);
+assert.equal(raw.towers.length,game.towers.length);
+assert.ok(raw.round>=1);
+console.log('Smoke test PASS');
