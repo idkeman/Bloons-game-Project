@@ -3,6 +3,7 @@ import { loadSave, saveGame } from "./save.js";
 import { playSound } from "./audio.js";
 import { SeededRandom, normalizeSeed } from "./core/rng.js";
 import { Hero, HEROES } from "./heroes.js";
+import { WaveDirector } from "./waves.js";
 
 const TAU = Math.PI * 2;
 
@@ -757,6 +758,7 @@ class Game {
     this.waveTimer = 0;
     this.incomeTimer = 0;
     this.spawnQueue = [];
+    this.waveDirector = null;
     this.waveClearTimer = 0;
     this.eventListeners = new Map();
     this.notifications = [];
@@ -867,6 +869,7 @@ class Game {
     this.enemies.clear();
     this.projectiles = [];
     this.spawnQueue = [];
+    this.waveDirector = null;
     this.selectedTower = null;
     this.selectedHero = null;
     this.selectedBuildId = null;
@@ -926,6 +929,7 @@ class Game {
       wave: this.wave,
       seed: this.seed,
       rngState: this.rng.getState(),
+      waveDirector: this.waveDirector?.serialize() ?? null,
       towers: this.towers.map((tower) => ({
         specId: tower.spec.id,
         x: tower.x,
@@ -971,13 +975,22 @@ class Game {
     this.waveActive = true;
     this.waveTimer = 0;
     this.waveClearTimer = 0;
-    this.spawnQueue = [];
-    for (const entry of profile.profile) {
-      const spec = getEnemy(entry.id);
-      for (let i = 0; i < entry.amount; i++) {
-        this.spawnQueue.push({ spec, pathIndex: (i + this.wave) % this.paths.length });
-      }
-    }
+    this.waveDirector = new WaveDirector({
+      round: profile,
+      paths: this.paths.length,
+      difficulty: {
+        speedMul: this.currentDifficulty === "veteran" ? 1.12 :
+          this.currentDifficulty === "nightmare" ? 1.24 :
+          this.currentDifficulty === "cataclysm" ? 1.42 : 1,
+      },
+      challenge: {
+        id: this.currentChallenge,
+        special: this.currentChallenge === "endurance" ? "income-pressure" : null
+      },
+      rng: this.rng
+    });
+    this.spawnQueue = this.waveDirector.schedule
+      .map((entry) => ({ spec: getEnemy(entry.spec), pathIndex: entry.pathIndex, at: entry.at, tag: entry.tag }));
     if (profile.boss) {
       playSound("boss");
       this.emit("toast", "ALERT: apex hostile signature detected.");
@@ -1038,12 +1051,23 @@ class Game {
     }
 
     let spawnBudget = 0;
-    if (this.spawnQueue.length > 0) {
+    if (this.waveDirector) {
+      this.waveDirector.advance(dt);
+      const due = this.waveDirector.due();
+      for (const entry of due) {
+        if (spawnBudget >= 7) break;
+        this.spawnEnemy({
+          spec: getEnemy(entry.spec),
+          pathIndex: entry.pathIndex,
+          tag: entry.tag
+        });
+        spawnBudget += 1;
+      }
+    } else if (this.spawnQueue.length > 0) {
       spawnBudget = Math.min(5, Math.max(1, Math.floor(this.waveTimer * 3)));
       while (spawnBudget > 0 && this.spawnQueue.length > 0) {
         this.spawnEnemy(this.spawnQueue.shift());
         spawnBudget -= 1;
-        this.waveTimer = Math.max(0, this.waveTimer - 0.32);
       }
     }
 
@@ -1093,7 +1117,7 @@ class Game {
 
     this.resolveDeaths();
 
-    if (this.waveActive && this.spawnQueue.length === 0 && this.activeEnemyCount() === 0) {
+    if (this.waveActive && (this.waveDirector ? this.waveDirector.complete() : this.spawnQueue.length === 0) && this.activeEnemyCount() === 0) {
       this.waveClearTimer += dt;
       if (this.waveClearTimer > 0.4) this.finishWave();
     }
@@ -1434,6 +1458,10 @@ class Game {
   skipWave() {
     if (!this.waveActive) return;
     this.spawnQueue = [];
+    if (this.waveDirector) {
+      this.waveDirector.cursor = this.waveDirector.schedule.length;
+      this.waveDirector.elapsed = this.waveDirector.totalDuration();
+    }
     for (const enemy of this.enemies.values()) {
       if (!enemy.dead && !enemy.leaked) enemy.hp = 0;
     }
