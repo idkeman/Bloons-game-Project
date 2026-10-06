@@ -9,6 +9,7 @@ import { ProgressionSystem } from "./progression.js";
 import { canPlaceAt } from "./placement.js";
 import { BossController } from "./bosses.js";
 import { TrapSystem } from "./traps.js";
+import { validateGameState } from "./diagnostics.js";
 
 export const GAME_STATES = {
   MENU: "menu",
@@ -99,6 +100,8 @@ export class Game {
     this.floaters = [];
     this.clock = 0;
     this.lastFrame = performance.now();
+    this.debugEnabled = false;
+    this.debugAccumulator = 0;
     this.runningLoop = false;
 
     this.bindCanvas();
@@ -234,6 +237,16 @@ export class Game {
 
     this.updateParticles(delta);
     this.cleanup();
+
+    this.debugAccumulator += delta;
+
+    if (
+      this.debugEnabled &&
+      this.debugAccumulator >= 0.25
+    ) {
+      this.debugAccumulator = 0;
+      validateGameState(this);
+    }
 
     if (this.lives <= 0 && this.state === GAME_STATES.RUNNING) {
       this.lose();
