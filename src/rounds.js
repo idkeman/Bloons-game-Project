@@ -252,8 +252,13 @@ export class RoundController {
       this.seed + this.current * 31
     );
 
-    const reward = rewardDefinition.cashReward;
-    this.game.addCash(reward, "round");
+    const reward =
+      rewardDefinition.cashReward *
+      (this.game.gameMode?.incomeMultiplier || 1) *
+    this.game.addCash(
+      Math.max(1, Math.round(reward)),
+      "round"
+    );
 
     this.active = false;
     this.game.emit("roundEnd", {
