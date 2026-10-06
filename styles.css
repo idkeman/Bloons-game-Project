@@ -190,3 +190,32 @@ h2 { margin: 6px 0 0; font-size: 28px; }
   .round-controls { bottom: 90px; }
   .metric { padding: 7px 9px; }
 }
+
+
+.end-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 6, 9, 0.58);
+}
+
+.end-card {
+  width: min(430px, 92vw);
+  padding: 26px;
+  border-radius: 18px;
+  text-align: center;
+}
+
+.end-card h2 {
+  margin-top: 8px;
+}
+
+.end-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 18px;
+}
