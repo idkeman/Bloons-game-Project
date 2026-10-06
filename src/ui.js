@@ -43,6 +43,7 @@ export class UIController {
     this.startMapCallback = actions.startMap;
     this.selectTowerCallback = actions.selectTower;
     this.buyUpgradeCallback = actions.buyUpgrade;
+    this.buyKnowledgeCallback = actions.buyKnowledge;
 
     document.querySelector("#play-btn").onclick = actions.play;
     document.querySelector("#freeplay-btn").onclick = actions.freeplay;
