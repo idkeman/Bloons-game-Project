@@ -27,3 +27,12 @@ jobs:
 
       - name: Core regression tests
         run: npm test
+
+      - name: Install browser test runner
+        run: npm install --no-save playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser integration tests
+        run: npm run browser-test
