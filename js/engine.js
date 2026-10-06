@@ -1,6 +1,7 @@
 import { GAME, TOWERS, ENEMIES, MAPS, ROUNDS, ACHIEVEMENTS, getTower, getEnemy, getMap } from "./data.js";
 import { loadSave, saveGame } from "./save.js";
 import { playSound } from "./audio.js";
+import { SeededRandom, normalizeSeed } from "./core/rng.js";
 
 const TAU = Math.PI * 2;
 
@@ -224,7 +225,7 @@ class Enemy {
     const children = [];
     if (reason === "destroyed") {
       for (const id of this.children) children.push(id);
-      if (Math.random() < this.cloneChance) children.push("mirage");
+      if (game.random() < this.cloneChance) children.push("mirage");
     }
     return children;
   }
@@ -293,7 +294,7 @@ class Projectile {
     let damage = this.stats.damage;
     if (this.stats.executeThreshold > 0 && target.hp / Math.max(1, target.maxHp) <= this.stats.executeThreshold) {
       damage = Math.max(damage, target.hp);
-    } else if (this.stats.critChance > 0 && Math.random() < this.stats.critChance) {
+    } else if (this.stats.critChance > 0 && game.random() < this.stats.critChance) {
       damage *= this.stats.critMultiplier ?? 2;
     }
 
@@ -717,6 +718,8 @@ class Game {
     this.ctx.imageSmoothingEnabled = true;
     this.save = loadSave();
     this.ids = new IdPool();
+    this.seed = normalizeSeed(Date.now());
+    this.rng = new SeededRandom(this.seed);
     this.particles = new ParticleSystem();
     this.spatial = new SpatialIndex(100);
     this.towers = [];
@@ -842,6 +845,8 @@ class Game {
   }
 
   begin(config = {}) {
+    this.seed = normalizeSeed(config.seed ?? Date.now());
+    this.rng.reset(this.seed);
     this.currentMap = getMap(config.mapId ?? "greenway");
     this.currentDifficulty = config.difficultyId ?? "standard";
     this.currentChallenge = config.challengeId ?? "scout";
@@ -883,6 +888,10 @@ class Game {
     this.cash = run.cash ?? GAME.startingCash;
     this.lives = run.lives ?? GAME.startingLives;
     this.wave = run.wave ?? 0;
+    this.seed = normalizeSeed(run.seed ?? Date.now());
+    this.rng.reset(this.seed);
+    if (run.rngState) this.rng.setState(run.rngState);
+    this.globalRevealTimer = 0;
     this.running = true;
     this.ended = false;
     this.waveActive = false;
@@ -908,6 +917,8 @@ class Game {
       cash: this.cash,
       lives: this.lives,
       wave: this.wave,
+      seed: this.seed,
+      rngState: this.rng.getState(),
       towers: this.towers.map((tower) => ({
         specId: tower.spec.id,
         x: tower.x,
@@ -1180,6 +1191,14 @@ class Game {
         tower.stats.damage *= 1 + support.stats.buffDamage;
       }
     }
+  }
+
+  random() {
+    return this.rng.next();
+  }
+
+  randomInt(min, max) {
+    return this.rng.int(min, max);
   }
 
   countTowersInRadius(sourceTower, radius) {
