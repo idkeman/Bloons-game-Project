@@ -1,6 +1,7 @@
 import { TOWERS, BLOONS, HEROES, PARAGONS, DIFFICULTIES, MODES, MAPS, ROUND_SPECIALS } from './data.js';
 import { fireTowerBehavior, applyTowerBehaviorUpgrades } from './tower-behaviors.js';
 import { MasteryProfile } from './mastery.js';
+import { AchievementProfile } from './achievements.js';
 
 export const GameState = {
   MENU: 'menu',
@@ -611,6 +612,9 @@ export class Tower {
     resultTower.effectiveRate=.11;
     resultTower.effectiveCount=6+Math.floor(degree/8);
     this.game.toast(`${pDef.name} created — Degree ${degree}`,'good');
+    this.game.achievements.stats.paragons+=1;
+    this.game.achievements.stats.bestParagonDegree=Math.max(this.game.achievements.stats.bestParagonDegree,degree);
+    this.game.checkAchievements();
     this.game.spawnBurst(resultTower.x,resultTower.y,pDef.color,70);
     this.game.onParagonCreated(resultTower);
     this.game.selected=resultTower;
@@ -945,7 +949,10 @@ export class GameEngine {
     let income=Math.floor(modeIncome*this.difficulty.cashMult*(this.mode.id==='halfCash'?.5:1));
     for(const tower of this.towers){if(tower.sold)continue;if(tower.def.isSupport&&tower.income)income+=tower.income*.3;}
     income=Math.max(0,Math.floor(income));this.cash+=income;this.totalCashEarned+=income;
-    if(income)this.spawnText(this.worldWidth/2,this.worldHeight-60,`Round bonus +$${income}`,'#ffe777',14);
+    if(income)this.spawnText(this.worldWidth/2,this.worldHeight-60,`Round bonus +${income}`,'#ffe777',14);
+    this.achievements.stats.bestRound=Math.max(this.achievements.stats.bestRound,this.round);
+    if(!this.livesLostThisRun)this.achievements.stats.bestNoLeakRound=Math.max(this.achievements.stats.bestNoLeakRound,this.round);
+    this.checkAchievements();
     if(this.round>0&&this.round%10===0){this.mastery.grantPoints(1);}
     if(this.round>=100)this.save();
     if(this.round>=this.mode.roundCap&&this.mode.id!=='freeplay'){this.mastery.grantPoints(2);this.endGame(true);return;}
@@ -997,10 +1004,18 @@ export class GameEngine {
     const reward=Math.max(1,Math.floor((bloon.reward/Math.max(1,this.difficulty.bloonHp)) * (this.mode.id==='halfCash'?.5:1)));
     const boostedReward=reward*(1+(this.masteryEffects?.popCash||0));
     this.cash+=boostedReward;this.totalCashEarned+=boostedReward;
-    if(bloon.boss)this.screenShake=1;
+    if(bloon.boss){
+      this.screenShake=1;
+      this.achievements.stats.bossesPopped+=1;
+      if(bloon.type==='ddt')this.achievements.stats.ddtPops+=1;
+      if(bloon.type==='bad')this.achievements.stats.badPops+=1;
+      if(bloon.type==='bloonBoss')this.achievements.stats.ruinKills+=1;
+    }
+    if(bloon.regrow)this.achievements.stats.regrowPops+=1;
+    if(bloon.fortified)this.achievements.stats.fortifiedPops+=1;
     if(this.hero)this.heroXp+=Math.max(1,bloon.reward*.1)*(1+(this.masteryEffects?.heroXp||0));
     this.spawnText(bloon.x,bloon.y+20,`+$${reward}`,'#ffe777',10);
-    if(this.hero){const before=this.hero.level;this.hero.heroGainXp(Math.max(1,bloon.reward*.1)*(1+(this.masteryEffects?.heroXp||0)));if(this.hero.level>before)this.toast(`${this.hero.def.name} reached level ${this.hero.level}`,'good');}
+    if(this.hero){const before=this.hero.level;this.hero.heroGainXp(Math.max(1,bloon.reward*.1)*(1+(this.masteryEffects?.heroXp||0)));if(this.hero.level>before){this.achievements.stats.heroLevelUps+=this.hero.level-before;this.toast(`${this.hero.def.name} reached level ${this.hero.level}`,'good');}this.achievements.stats.maxHeroLevel=Math.max(this.achievements.stats.maxHeroLevel,this.hero.level);}
   }
   onParagonCreated(tower){this.tier5Counts[tower.id]=(this.tier5Counts[tower.id]||0)+1;}
   getUpgradeCostMultiplier(){
@@ -1016,13 +1031,18 @@ export class GameEngine {
     const cost=TOWERS[id].cost;
     if(this.cash<cost){this.toast('Not enough cash','danger');return null;}
     this.cash-=cost;
-    const tower=new Tower(this,id,x,y);tower.recalculate();this.towers.push(tower);this.selected=tower;this.pendingTower=null;this.toast(`${tower.def.name} placed`,'good');this.save();return tower;
+    const tower=new Tower(this,id,x,y);tower.recalculate();this.towers.push(tower);this.selected=tower;
+    this.achievements.stats.towersPlaced+=1;
+    this.achievements.recordTowerType(id);
+    if(tower.levels.some(level=>level>0))this.achievements.stats.upgradesBought+=1;this.pendingTower=null;this.toast(`${tower.def.name} placed`,'good');this.save();return tower;
   }
   placeHero(x,y){
     if(this.heroPlaced||!HEROES[this.heroId])return null;
     const def=HEROES[this.heroId];if(this.cash<def.cost){this.toast('Not enough cash for hero','danger');return null;}
     if(!this.canPlace(x,y,{range:def.base.range}))return null;
-    this.cash-=def.cost;this.hero=new HeroUnit(this,this.heroId,x,y);this.hero.recalculate();this.heroPlaced=true;this.selected=this.hero;this.pendingTower=null;this.toast(`${def.name} deployed`,'good');this.save();return this.hero;
+    this.cash-=def.cost;this.hero=new HeroUnit(this,this.heroId,x,y);this.hero.recalculate();this.heroPlaced=true;
+    this.achievements.stats.heroPlaced+=1;
+    this.achievements.recordHeroType(this.heroId);this.selected=this.hero;this.pendingTower=null;this.toast(`${def.name} deployed`,'good');this.save();return this.hero;
   }
   canPlace(x,y,def){
     const radius=22; if(x<radius||y<radius||x>this.worldWidth-radius||y>this.worldHeight-radius)return false;
@@ -1037,7 +1057,8 @@ export class GameEngine {
   sellSelected(){
     const t=this.selected;if(!t||t===this.hero||t.sold)return false;
     if(this.modeRules?.noSell){this.toast('Resale is disabled in this mode','danger');return false;}
-    const value=t.sellValue();t.sold=true;this.cash+=value;this.spawnText(t.x,t.y,`+$${value}`,'#ffe777',12);this.selected=null;this.toast('Tower sold','good');this.save();return true;
+    const value=t.sellValue();t.sold=true;this.cash+=value;
+    this.achievements.stats.towersSold+=1;this.spawnText(t.x,t.y,`+$${value}`,'#ffe777',12);this.selected=null;this.toast('Tower sold','good');this.save();return true;
   }
   selectAt(x,y){
     let found=null;
@@ -1053,8 +1074,8 @@ export class GameEngine {
     if(this.pendingTower)return this.placeTower(this.pendingTower,x,y);
     return this.selectAt(x,y);
   }
-  togglePause(){if(this.state===GameState.PLAYING){this.state=GameState.PAUSED;return true;} if(this.state===GameState.PAUSED){this.state=GameState.PLAYING;this.lastFrame=performance.now()/1000;return false;}return false;}
-  setSpeed(){this.speedMultiplier=this.speedMultiplier===1?2:this.speedMultiplier===2?3:1;return this.speedMultiplier;}
+  togglePause(){if(this.state===GameState.PLAYING){this.state=GameState.PAUSED;this.achievements.stats.pauses+=1;this.checkAchievements();return true;} if(this.state===GameState.PAUSED){this.state=GameState.PLAYING;this.lastFrame=performance.now()/1000;return false;}return false;}
+  setSpeed(){this.speedMultiplier=this.speedMultiplier===1?2:this.speedMultiplier===2?3:1;if(this.speedMultiplier>1){this.achievements.stats.fastRounds+=1;this.checkAchievements();}return this.speedMultiplier;}
   endGame(victory){
     this.roundRunning=false;this.won=victory;this.lost=!victory;this.state=victory?GameState.VICTORY:GameState.GAME_OVER;this.save();
   }
@@ -1062,6 +1083,7 @@ export class GameEngine {
     try{
       const data={version:1,mapId:this.map?.id,difficultyId:this.difficulty.id,modeId:this.mode.id,heroId:this.heroId,round:this.round,cash:this.cash,lives:this.lives,eco:this.eco,heroPlaced:this.heroPlaced,hero:this.hero?{x:this.hero.x,y:this.hero.y,level:this.hero.level,xp:this.hero.xp}:null,towers:this.towers.filter(t=>!t.sold).map(t=>({id:t.id,x:t.x,y:t.y,levels:t.levels,targetMode:t.targetMode,totalInvested:t.totalInvested,paragon:t.paragon,paragonDegree:t.paragonDegree})),savedAt:Date.now()};
       localStorage.setItem('balloon-bastion-save',JSON.stringify(data));
+    if(this.achievements){this.achievements.stats.saves+=1;this.achievements.save();this.mastery.save();}
     }catch(e){console.warn('Save failed',e);}
   }
   load(){
@@ -1096,6 +1118,18 @@ export class GameEngine {
   }
   resolveDrones(){for(const p of this.projectiles){if(p.drone&&!p.owner)p.owner=this.hero;}}
   meteor(x,y,radius,damage){this.spawnRing(x,y,radius,'#ffb16b');this.particles.push(new Particle(x,y,{color:'#fff0a1',life:.6,size:45,vx:0,vy:0}));this.areaDamage(x,y,radius,damage,this.hero);}
+  checkAchievements(){
+    if(!this.achievements)return;
+    this.achievements.recordMastery(this.mastery.unlocked.size);
+    const unlocked=this.achievements.evaluate();
+    for(const achievement of unlocked){
+      this.mastery.grantPoints(achievement.points);
+      this.toast('Achievement: '+achievement.name,'good');
+    }
+    this.achievements.save();
+    this.masteryEffects=this.mastery.getEffects();
+  }
+
   toast(message,kind='info'){
     if(this.onToast)this.onToast(message,kind);
   }
@@ -1262,6 +1296,9 @@ export class GameEngine {
     this.worldWidth=1280;this.worldHeight=820;
     this.towers=[];this.bloons=[];this.projectiles=[];this.particles=[];this.texts=[];this.effects=[];
     this.masteryEffects=this.mastery.getEffects();
+    this.modeRules=this.mode.rules||{};
+    this.achievements.recordMap(this.map.id);
+    this.achievements.recordHeroType(this.heroId);
     this.cash=Math.round((this.mode.startCash+this.masteryEffects.startingCash)*this.difficulty.cashMult);this.lives=Math.max(1,Math.round(this.mode.startLives*this.difficulty.lifeMult));this.eco=100;this.round=this.mode.id==='freeplay'?79:0;this.roundRunning=false;this.roundSpawnPlan=[];this.spawnCursor=0;this.spawnTimer=0;this.fast=false;this.autoStart=true;this.selected=null;this.pendingTower=null;this.gameTime=0;this.heroLevel=1;this.heroXp=0;this.heroPlaced=false;this.totalPops=0;this.totalCashEarned=0;this.tier5Counts={};this.freeplay=false;this.won=false;this.lost=false;this.state=GameState.PLAYING;this.updateCamera();
     this.save();
   }
