@@ -615,6 +615,8 @@ export class HeroUnit extends Tower {
     this.xp+=amount;
     const levels=HEROES[this.id].levels;
     while(this.level<levels.length && this.xp>=levels[this.level].xp)this.level++;
+    this.game.heroLevel=this.level;
+    this.game.heroXp=this.xp;
     const cur=levels[Math.max(0,this.level-1)];
     this.effectiveDamage=this.def.base.damage+(cur.damage||0)-this.def.base.damage+(HEROES[this.id].levels[this.level-1]?.damage||this.def.base.damage);
   }
