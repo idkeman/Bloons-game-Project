@@ -248,6 +248,7 @@ assert.ok(
 await page.locator("#tower-buttons .tower-button").last().click();
 await page.evaluate(() => {
   const game = window.monkeyFrontier.game;
+  game.cash = 5000;
   const zone = game.map.buildZones[0];
   const x = (zone.x + zone.w / 2) * game.width;
   const y = (zone.y + zone.h / 2) * game.height;
