@@ -36,6 +36,8 @@ const towerSeed = [
    ["Supply Drop","Dividend Shot","Crate Network","War Economy","Treasury Command"]],
   ["sub","Tide Submersible","military",350,"Sub","Water-capable utility attacker.",
    {range:185,attackSpeed:1.15,damage:2,pierce:4,projectiles:2,speed:430},
+
+
    ["Twin Needles","Pressure Hull","Torpedo Bay","Depth Charge","Abyssal Spear"],
    ["Sonar Pulse","Advanced Sonar","Jamming Field","Blackout Net","Total Surveillance"],
    ["Eco Generator","Supply Current","Merchant Fleet","Trade Empire","Ocean Treasury"]],
@@ -94,6 +96,46 @@ const towerSeed = [
    ["Bigger Shell","Heavy Shell","Burning Ground","Shockwave Shell","Cataclysm"],
    ["Fast Loader","Rapid Loader","Precision Crew","Elite Crew","Perfect Barrage"],
    ["Signal Flare","Target Painter","Mapwide Marker","Command Fire","Orbital Marker"]]
+  ["laser","Prism Blaster","magic",1200,"L","Energy-beam tower with refraction upgrades.",
+   {range:205,attackSpeed:.28,damage:4,pierce:8,projectiles:1,speed:0,damageType:"energy"},
+   ["Focused Lens","Twin Beam","Radiant Beam","Spectrum Beam","Prismatic Crown"],
+   ["Wide Beam","Scatter Beam","Refraction","Mirror Array","Infinity Array"],
+   ["Cooling Core","Thermal Control","Cryo Cycle","Zero Heat","Perpetual Core"]],
+  ["gatling","Gatling Rover","military",850,"G","Very fast sustained-fire projectile tower.",
+   {range:155,attackSpeed:.18,damage:1,pierce:2,projectiles:2,speed:620},
+   ["Reinforced Barrel","Armor Piercer","Heavy Feed","Titanium Feed","Siege Gatling"],
+   ["Expanded Drum","Dual Drum","Crossfire","Bullet Web","Lead Storm"],
+   ["Servo Motor","Cooling Fans","Auto Cycle","Hyper Servo","Infinite Cycle"]],
+  ["heli","Rotor Ranger","military",900,"H","Airborne unit with fast volleys and support options.",
+   {range:205,attackSpeed:.75,damage:2,pierce:4,projectiles:3,speed:500,homing:.02},
+   ["Twin Rotors","Rocket Pods","Heavy Rockets","Gunship","Sky Fortress"],
+   ["Quad Volley","Focused Volley","Rapid Salvo","Tactical Salvo","Perfect Salvo"],
+   ["Supply Drone","Support Crew","Emergency Drop","Combat Supply","Command Carrier"]],
+  ["beast","Wild Tamer","support",600,"W","Nature support that creates creature attacks and pack buffs.",
+   {range:145,attackSpeed:1.1,damage:2,pierce:6,projectiles:1,speed:360,slow:.2,slowTime:1.5},
+   ["Sharp Claws","Pack Tactics","Predator","Apex Predator","Mythic Hunt"],
+   ["Loyal Pack","Pack Size","Alpha Pack","Mega Pack","Infinite Pack"],
+   ["Shared Instinct","Wild Wisdom","Nature Bond","Ancient Bond","Primeval Bond"]],
+  ["timekeeper","Chronomancer","magic",1100,"C","Temporal control tower specializing in battlefield slowing.",
+   {range:135,attackSpeed:1.4,damage:1,pierce:999,projectiles:1,speed:260,slow:.32,slowTime:1.5},
+   ["Clockwork Dart","Time Bolt","Split Time","Time Fracture","Endless Moment"],
+   ["Time Field","Slow Field","Stasis Field","Chrono Prison","Frozen Epoch"],
+   ["Temporal Sight","Future Sight","Predictive Aim","Foresight","Perfect Foresight"]],
+  ["mine","Magma Mine","support",750,"X","Persistent explosive field that chains nearby detonations.",
+   {range:9999,attackSpeed:2,damage:5,pierce:20,projectiles:1,speed:0,splash:52},
+   ["Bigger Charge","Heavy Charge","Burning Crater","Molten Pit","Volcanic Core"],
+   ["More Mines","Mine Chain","Cluster Mine","Minefield","Infinite Minefield"],
+   ["Remote Trigger","Smart Trigger","Detonator Network","Chain Detonator","Global Detonator"]],
+  ["farm","Greenhouse Hub","support",1000,"$","Dedicated passive economy tower.",
+   {range:90,attackSpeed:4,damage:0,pierce:0,projectiles:0,speed:0},
+   ["Seed Fund","Cash Crop","Commercial Farm","Industrial Farm","Golden Greenhouse"],
+   ["Efficient Pumps","Hydroponics","Advanced Hydroponics","Bio Reactor","Living Reactor"],
+   ["Market Link","Merchant Link","Trade Center","Global Market","World Exchange"]],
+  ["beacon","Aegis Beacon","support",1200,"Q","Long-range support field for detection and stat bonuses.",
+   {range:135,attackSpeed:4,damage:0,pierce:0,projectiles:0,speed:0},
+   ["Signal Strength","Long Signal","Global Signal","Aegis Network","Aegis Horizon"],
+   ["Range Matrix","Support Matrix","Power Matrix","Command Matrix","Master Matrix"],
+   ["Shield Array","Barrier Field","Fortified Field","Citadel Field","World Shield"]],
 ];
 
 function upgrade(pathName,tier,seed,pathIndex){
@@ -122,7 +164,28 @@ function upgrade(pathName,tier,seed,pathIndex){
 
 const TOWERS={};
 for(const [id,name,category,cost,icon,description,base,p1,p2,p3] of towerSeed){
-  TOWERS[id]={id,name,category,cost,icon,description,base:{...base,targetMode:"first"},targeting:["first","last","close","strong","weak"],paths:[p1.map((n,i)=>upgrade(n,i+1,id,0)),p2.map((n,i)=>upgrade(n,i+1,id,1)),p3.map((n,i)=>upgrade(n,i+1,id,2))]};
+  const placement =
+    id === "sub" ||
+    id === "boat"
+      ? "water"
+      : "land";
+
+  TOWERS[id]={
+    id,
+    name,
+    category,
+    cost,
+    icon,
+    description,
+    placement,
+    base:{...base,targetMode:"first"},
+    targeting:["first","last","close","strong","weak"],
+    paths:[
+      p1.map((n,i)=>upgrade(n,i+1,id,0)),
+      p2.map((n,i)=>upgrade(n,i+1,id,1)),
+      p3.map((n,i)=>upgrade(n,i+1,id,2))
+    ]
+  };
 }
 
 const HEROES=[
